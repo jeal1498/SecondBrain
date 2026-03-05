@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // ===================== THEME =====================
 const T = {
@@ -84,7 +84,7 @@ const initData = () => ({
     {id:uid(),name:'Trabajo',color:T.areaColors[0],icon:'💼'},
     {id:uid(),name:'Finanzas',color:T.areaColors[2],icon:'💰'},
   ],
-  objectives:[{id:uid(),title:'Correr una maratón',areaId:'',deadline:'2025-12-31',status:'active'}],
+  objectives:[{id:uid(),title:'Correr una maratón',areaId:'',deadline:'2026-12-31',status:'active'}],
   projects:[],tasks:[],
   notes:[{id:uid(),title:'Cómo funciona el Segundo Cerebro',content:'El Segundo Cerebro es un sistema para externalizar nuestra memoria y liberar carga cognitiva. Basado en el método de Tiago Forte: Áreas → Objetivos → Proyectos → Tareas.',tags:['productividad','sistema'],areaId:'',createdAt:today()}],
   inbox:[{id:uid(),content:'Revisar el sistema de Segundo Cerebro',createdAt:today(),processed:false}],
@@ -160,6 +160,60 @@ const PageHeader = ({title,subtitle,action,isMobile}) => (
   </div>
 );
 
+// ===================== GLOBAL SEARCH =====================
+const GlobalSearch = ({data,onNavigate,onClose}) => {
+  const [q,setQ]=useState('');
+  const inputRef=useRef(null);
+  useEffect(()=>inputRef.current?.focus(),[]);
+  if(!q.trim()) return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300,display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:60,backdropFilter:'blur(6px)'}} onClick={onClose}>
+      <div style={{width:'100%',maxWidth:520,padding:'0 16px'}} onClick={e=>e.stopPropagation()}>
+        <div style={{position:'relative'}}>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} autoComplete="off"
+            placeholder="Buscar en todo tu Segundo Cerebro..."
+            style={{width:'100%',background:T.surface,border:`2px solid ${T.accent}`,color:T.text,padding:'14px 44px 14px 16px',borderRadius:14,fontSize:16,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}}/>
+          <button onClick={onClose} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',display:'flex'}}><Icon name="x" size={20}/></button>
+        </div>
+        <div style={{marginTop:12,color:T.dim,fontSize:12,textAlign:'center'}}>Busca en notas, tareas, objetivos, proyectos y hábitos</div>
+      </div>
+    </div>
+  );
+  const ql=q.toLowerCase();
+  const results=[
+    ...data.notes.filter(n=>n.title.toLowerCase().includes(ql)||n.content.toLowerCase().includes(ql)||(n.tags||[]).some(t=>t.toLowerCase().includes(ql))).map(n=>({type:'📝 Nota',label:n.title,sub:n.content.slice(0,60),action:()=>{onNavigate('notes',n.id);onClose();}})),
+    ...data.tasks.filter(t=>t.title.toLowerCase().includes(ql)).map(t=>({type:'✅ Tarea',label:t.title,sub:t.status==='done'?'Completada':'Pendiente',action:()=>{onNavigate('projects',null);onClose();}})),
+    ...data.objectives.filter(o=>o.title.toLowerCase().includes(ql)).map(o=>({type:'🎯 Objetivo',label:o.title,sub:o.status==='active'?'Activo':'Completado',action:()=>{onNavigate('objectives',null);onClose();}})),
+    ...data.projects.filter(p=>p.title.toLowerCase().includes(ql)).map(p=>({type:'📁 Proyecto',label:p.title,sub:'',action:()=>{onNavigate('projects',null);onClose();}})),
+    ...data.habits.filter(h=>h.name.toLowerCase().includes(ql)).map(h=>({type:'🔁 Hábito',label:h.name,sub:h.frequency==='daily'?'Diario':'Semanal',action:()=>{onNavigate('habits',null);onClose();}})),
+  ];
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.7)',zIndex:300,display:'flex',alignItems:'flex-start',justifyContent:'center',paddingTop:60,backdropFilter:'blur(6px)'}} onClick={onClose}>
+      <div style={{width:'100%',maxWidth:520,padding:'0 16px',maxHeight:'70vh',display:'flex',flexDirection:'column'}} onClick={e=>e.stopPropagation()}>
+        <div style={{position:'relative',marginBottom:8}}>
+          <input ref={inputRef} value={q} onChange={e=>setQ(e.target.value)} autoComplete="off"
+            placeholder="Buscar en todo tu Segundo Cerebro..."
+            style={{width:'100%',background:T.surface,border:`2px solid ${T.accent}`,color:T.text,padding:'14px 44px 14px 16px',borderRadius:14,fontSize:16,outline:'none',boxSizing:'border-box',fontFamily:'inherit'}}/>
+          <button onClick={onClose} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',display:'flex'}}><Icon name="x" size={20}/></button>
+        </div>
+        <div style={{overflowY:'auto',background:T.surface,borderRadius:12,border:`1px solid ${T.border}`}}>
+          {results.length===0?(<div style={{padding:'24px',textAlign:'center',color:T.dim,fontSize:14}}>Sin resultados para "{q}"</div>)
+            :results.map((r,i)=>(
+              <div key={i} onClick={r.action} style={{padding:'12px 16px',cursor:'pointer',borderBottom:`1px solid ${T.border}`,display:'flex',gap:10,alignItems:'center'}}
+                onMouseEnter={e=>e.currentTarget.style.background=T.surface2} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <span style={{fontSize:11,color:T.accent,background:`${T.accent}18`,padding:'2px 8px',borderRadius:8,flexShrink:0,fontWeight:600}}>{r.type}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{color:T.text,fontSize:14,fontWeight:500}}>{r.label}</div>
+                  {r.sub&&<div style={{color:T.muted,fontSize:12,marginTop:1}}>{r.sub}</div>}
+                </div>
+              </div>
+            ))}
+        </div>
+        <div style={{marginTop:8,color:T.dim,fontSize:11,textAlign:'center'}}>{results.length} resultado{results.length!==1?'s':''}</div>
+      </div>
+    </div>
+  );
+};
+
 // ===================== DASHBOARD =====================
 const Dashboard = ({data,isMobile,onNavigate}) => {
   const pendingTasks=data.tasks.filter(t=>t.status!=='done').length;
@@ -177,7 +231,7 @@ const Dashboard = ({data,isMobile,onNavigate}) => {
   const pendingList=data.tasks.filter(t=>t.status!=='done').slice(0,5);
   return (
     <div>
-      <h2 style={{color:T.text,marginTop:0,fontSize:isMobile?20:24,fontWeight:700,marginBottom:2}}>Buenos días 🧠</h2>
+      <h2 style={{color:T.text,marginTop:0,fontSize:isMobile?20:24,fontWeight:700,marginBottom:2}}>{(()=>{const h=new Date().getHours();return h<12?'Buenos días 🌅':h<18?'Buenas tardes ☀️':'Buenas noches 🌙';})()}</h2>
       <p style={{color:T.muted,marginBottom:20,fontSize:13}}>{new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</p>
       <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
         {stats.map(s=>(
@@ -251,7 +305,15 @@ const Areas = ({data,setData,isMobile,onNavigate}) => {
     setData(d=>({...d,areas:updated}));save('areas',updated);
     setModal(false);setForm({name:'',icon:'🌟',color:T.areaColors[0]});
   };
-  const del=(id)=>{const u=data.areas.filter(a=>a.id!==id);setData(d=>({...d,areas:u}));save('areas',u);};
+  const del=(id)=>{
+    if(!window.confirm('¿Eliminar esta área? Los objetivos, proyectos y notas vinculados quedarán sin área asignada.'))return;
+    const u=data.areas.filter(a=>a.id!==id);
+    const updObj=data.objectives.map(o=>o.areaId===id?{...o,areaId:''}:o);
+    const updProj=data.projects.map(p=>p.areaId===id?{...p,areaId:''}:p);
+    const updNotes=data.notes.map(n=>n.areaId===id?{...n,areaId:''}:n);
+    setData(d=>({...d,areas:u,objectives:updObj,projects:updProj,notes:updNotes}));
+    save('areas',u);save('objectives',updObj);save('projects',updProj);save('notes',updNotes);
+  };
   return (
     <div>
       <PageHeader title="Áreas de vida" subtitle="Los grandes pilares de su vida." isMobile={isMobile}
@@ -494,6 +556,10 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
             {list.map(o=>{
               const area=data.areas.find(a=>a.id===o.areaId);
               const relProj=data.projects.filter(p=>p.objectiveId===o.id);
+              const objTasks=data.tasks.filter(t=>relProj.some(p=>p.id===t.projectId));
+              const objDone=objTasks.filter(t=>t.status==='done').length;
+              const objPct=objTasks.length?Math.round(objDone/objTasks.length*100):0;
+              const isOverdue=o.deadline&&o.deadline<today()&&status==='active';
               return (
                 <Card key={o.id} style={{marginBottom:10,opacity:status==='done'?0.6:1,cursor:'pointer'}}
                   onClick={()=>onNavigate&&onNavigate('projects',`obj:${o.id}`)}>
@@ -503,9 +569,20 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
                     </button>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{color:T.text,fontWeight:600,fontSize:14,textDecoration:status==='done'?'line-through':'none',marginBottom:6}}>{o.title}</div>
+                      {objTasks.length>0&&(
+                        <div style={{marginBottom:6}}>
+                          <div style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
+                            <span style={{color:T.dim,fontSize:11}}>{objDone}/{objTasks.length} tareas</span>
+                            <span style={{color:objPct===100?T.green:T.accent,fontSize:11,fontWeight:600}}>{objPct}%</span>
+                          </div>
+                          <div style={{height:4,background:T.border,borderRadius:2}}>
+                            <div style={{height:'100%',width:`${objPct}%`,background:objPct===100?T.green:T.accent,borderRadius:2,transition:'width 0.4s'}}/>
+                          </div>
+                        </div>
+                      )}
                       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
                         {area&&<Tag text={`${area.icon} ${area.name}`} color={area.color}/>}
-                        {o.deadline&&<span style={{color:T.muted,fontSize:12}}>📅 {fmt(o.deadline)}</span>}
+                        {o.deadline&&<span style={{color:isOverdue?T.red:T.muted,fontSize:12,fontWeight:isOverdue?600:400}}>{isOverdue?'⚠️ Vencido: ':' 📅 '}{fmt(o.deadline)}</span>}
                         <span style={{color:relProj.length?T.blue:T.dim,fontSize:12,fontWeight:relProj.length?600:400}}>
                           📁 {relProj.length} proyecto{relProj.length!==1?'s':''} →
                         </span>
@@ -544,7 +621,7 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
 };
 
 // ===================== PROJECTS & TASKS =====================
-const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
+const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) => {
   const [selProject,setSelProject]=useState(null);
   const [showDetail,setShowDetail]=useState(false);
   const [projModal,setProjModal]=useState(false);
@@ -586,8 +663,12 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
     setData(d=>({...d,tasks:updated}));save('tasks',updated);
     setTaskModal(false);setTaskForm({title:'',priority:'media',dueDate:''});
   };
+  const [editTask,setEditTask]=useState(null);
+  const [editTaskForm,setEditTaskForm]=useState({title:'',priority:'media',dueDate:''});
   const toggleTask=(id)=>{const u=data.tasks.map(t=>t.id===id?{...t,status:t.status==='done'?'todo':'done'}:t);setData(d=>({...d,tasks:u}));save('tasks',u);};
-  const delTask=(id)=>{const u=data.tasks.filter(t=>t.id!==id);setData(d=>({...d,tasks:u}));save('tasks',u);};
+  const delTask=(id)=>{if(!window.confirm('¿Eliminar esta tarea?'))return;const u=data.tasks.filter(t=>t.id!==id);setData(d=>({...d,tasks:u}));save('tasks',u);};
+  const startEditTask=(t)=>{setEditTaskForm({title:t.title,priority:t.priority||'media',dueDate:t.dueDate||''});setEditTask(t.id);};
+  const saveEditTask=()=>{const u=data.tasks.map(t=>t.id===editTask?{...t,...editTaskForm}:t);setData(d=>({...d,tasks:u}));save('tasks',u);setEditTask(null);};
   const delProj=(id)=>{
     const updP=data.projects.filter(p=>p.id!==id);
     const updT=data.tasks.filter(t=>t.projectId!==id);
@@ -695,14 +776,35 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
           <div key={st} style={{marginBottom:12}}>
             {st==='done'&&list.length>0&&<div style={{color:T.muted,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>Completadas</div>}
             {list.map(t=>(
-              <div key={t.id} style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,marginBottom:8,opacity:st==='done'?0.6:1}}>
-                <button onClick={()=>toggleTask(t.id)} style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${st==='done'?T.green:T.border}`,background:st==='done'?T.green:'transparent',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                  {st==='done'&&<Icon name="check" size={11} color="#000"/>}
-                </button>
-                <div style={{width:8,height:8,borderRadius:'50%',background:pColors[t.priority]||T.muted,flexShrink:0}}/>
-                <span style={{color:T.text,fontSize:14,flex:1,textDecoration:st==='done'?'line-through':'none'}}>{t.title}</span>
-                {t.dueDate&&<span style={{color:T.muted,fontSize:11}}>{fmt(t.dueDate)}</span>}
-                <button onClick={()=>delTask(t.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={14}/></button>
+              <div key={t.id} style={{background:T.surface,border:`1px solid ${editTask===t.id?T.accent:T.border}`,borderRadius:10,marginBottom:8,opacity:st==='done'?0.6:1,overflow:'hidden'}}>
+                {editTask===t.id?(
+                  <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:8}}>
+                    <Input value={editTaskForm.title} onChange={v=>setEditTaskForm(f=>({...f,title:v}))} placeholder="Título de la tarea"/>
+                    <div style={{display:'flex',gap:8}}>
+                      <Select value={editTaskForm.priority} onChange={v=>setEditTaskForm(f=>({...f,priority:v}))} style={{flex:1,padding:'6px 10px',fontSize:13}}>
+                        <option value="baja">🟢 Baja</option>
+                        <option value="media">🟡 Media</option>
+                        <option value="alta">🔴 Alta</option>
+                      </Select>
+                      <Input type="date" value={editTaskForm.dueDate} onChange={v=>setEditTaskForm(f=>({...f,dueDate:v}))} style={{flex:1,padding:'6px 10px',fontSize:13}}/>
+                    </div>
+                    <div style={{display:'flex',gap:8}}>
+                      <Btn onClick={saveEditTask} size="sm" style={{flex:1,justifyContent:'center'}}>Guardar</Btn>
+                      <Btn variant="ghost" onClick={()=>setEditTask(null)} size="sm" style={{flex:1,justifyContent:'center'}}>Cancelar</Btn>
+                    </div>
+                  </div>
+                ):(
+                  <div style={{display:'flex',alignItems:'center',gap:10,padding:'12px 14px'}}>
+                    <button onClick={()=>toggleTask(t.id)} style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${st==='done'?T.green:T.border}`,background:st==='done'?T.green:'transparent',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                      {st==='done'&&<Icon name="check" size={11} color="#000"/>}
+                    </button>
+                    <div style={{width:8,height:8,borderRadius:'50%',background:pColors[t.priority]||T.muted,flexShrink:0}}/>
+                    <span style={{color:T.text,fontSize:14,flex:1,textDecoration:st==='done'?'line-through':'none'}}>{t.title}</span>
+                    {t.dueDate&&<span style={{color:t.dueDate<today()&&st!=='done'?T.red:T.muted,fontSize:11}}>{fmt(t.dueDate)}</span>}
+                    {st!=='done'&&<button onClick={()=>startEditTask(t)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4,fontSize:12}}>✏️</button>}
+                    <button onClick={()=>delTask(t.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={14}/></button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -739,6 +841,8 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
   const [modal,setModal]=useState(false);
   const [form,setForm]=useState({title:'',content:'',tags:'',areaId:''});
   const [search,setSearch]=useState('');
+  const [editing,setEditing]=useState(false);
+  const [editForm,setEditForm]=useState({title:'',content:'',tags:'',areaId:''});
 
   useEffect(()=>{
     if(viewHint&&viewHint!=='null'){
@@ -751,12 +855,24 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
   const saveNote=()=>{
     if(!form.title.trim())return;
     const n={id:uid(),...form,tags:form.tags.split(',').map(t=>t.trim()).filter(Boolean),createdAt:today()};
-    const updated=[...data.notes,n];
+    const updated=[n,...data.notes];
     setData(d=>({...d,notes:updated}));save('notes',updated);
     setModal(false);setForm({title:'',content:'',tags:'',areaId:''});
     setSel(n);if(isMobile)setShowNote(true);
   };
+  const startEdit=(n)=>{
+    setEditForm({title:n.title,content:n.content,tags:(n.tags||[]).join(', '),areaId:n.areaId||''});
+    setEditing(true);
+  };
+  const saveEdit=()=>{
+    if(!editForm.title.trim())return;
+    const updated=data.notes.map(n=>n.id===sel.id?{...n,...editForm,tags:editForm.tags.split(',').map(t=>t.trim()).filter(Boolean)}:n);
+    setData(d=>({...d,notes:updated}));save('notes',updated);
+    setSel(updated.find(n=>n.id===sel.id));
+    setEditing(false);
+  };
   const del=(id)=>{
+    if(!window.confirm('¿Eliminar esta nota?'))return;
     const updated=data.notes.filter(n=>n.id!==id);
     setData(d=>({...d,notes:updated}));save('notes',updated);
     if(sel?.id===id){setSel(null);setShowNote(false);}
@@ -790,18 +906,39 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
 
   const NoteView=()=>(
     <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:12,padding:20}}>
-      {isMobile&&<button onClick={()=>setShowNote(false)} style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',color:T.muted,cursor:'pointer',marginBottom:16,fontSize:14,padding:0}}><Icon name="back" size={18}/>Notas</button>}
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
-        <h3 style={{margin:0,color:T.text,fontSize:18,fontWeight:700,flex:1}}>{sel?.title}</h3>
-        <button onClick={()=>del(sel.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={16}/></button>
-      </div>
-      <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
-        {sel?.tags?.map(t=><Tag key={t} text={t}/>)}
-        {sel?.areaId&&(()=>{const a=data.areas.find(x=>x.id===sel.areaId);return a?<Tag text={`${a.icon} ${a.name}`} color={a.color}/>:null;})()}
-        {sel?.amount&&<Tag text={`💰 $${sel.amount} ${sel.currency||'MXN'}`} color={T.green}/>}
-        <span style={{color:T.dim,fontSize:12,alignSelf:'center'}}>{fmt(sel?.createdAt)}</span>
-      </div>
-      <p style={{color:T.text,fontSize:15,lineHeight:1.8,whiteSpace:'pre-wrap',margin:0}}>{sel?.content}</p>
+      {isMobile&&<button onClick={()=>{setShowNote(false);setEditing(false);}} style={{display:'flex',alignItems:'center',gap:6,background:'none',border:'none',color:T.muted,cursor:'pointer',marginBottom:16,fontSize:14,padding:0}}><Icon name="back" size={18}/>Notas</button>}
+      {editing?(
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Input value={editForm.title} onChange={v=>setEditForm(f=>({...f,title:v}))} placeholder="Título"/>
+          <Textarea value={editForm.content} onChange={v=>setEditForm(f=>({...f,content:v}))} placeholder="Contenido..." rows={6}/>
+          <Input value={editForm.tags} onChange={v=>setEditForm(f=>({...f,tags:v}))} placeholder="Tags (separados por coma)"/>
+          <Select value={editForm.areaId} onChange={v=>setEditForm(f=>({...f,areaId:v}))}>
+            <option value="">Sin área</option>
+            {data.areas.map(a=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+          </Select>
+          <div style={{display:'flex',gap:10}}>
+            <Btn onClick={saveEdit} style={{flex:1,justifyContent:'center'}}>Guardar</Btn>
+            <Btn variant="ghost" onClick={()=>setEditing(false)} style={{flex:1,justifyContent:'center'}}>Cancelar</Btn>
+          </div>
+        </div>
+      ):(
+        <>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
+            <h3 style={{margin:0,color:T.text,fontSize:18,fontWeight:700,flex:1}}>{sel?.title}</h3>
+            <div style={{display:'flex',gap:4}}>
+              <button onClick={()=>startEdit(sel)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,color:T.muted,cursor:'pointer',display:'flex',padding:'4px 10px',fontSize:12,fontFamily:'inherit',gap:4,alignItems:'center'}}>✏️ Editar</button>
+              <button onClick={()=>del(sel.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={16}/></button>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+            {sel?.tags?.map(t=><Tag key={t} text={t}/>)}
+            {sel?.areaId&&(()=>{const a=data.areas.find(x=>x.id===sel.areaId);return a?<Tag text={`${a.icon} ${a.name}`} color={a.color}/>:null;})()}
+            {sel?.amount&&<Tag text={`💰 $${sel.amount} ${sel.currency||'MXN'}`} color={T.green}/>}
+            <span style={{color:T.dim,fontSize:12,alignSelf:'center'}}>{fmt(sel?.createdAt)}</span>
+          </div>
+          <p style={{color:T.text,fontSize:15,lineHeight:1.8,whiteSpace:'pre-wrap',margin:0}}>{sel?.content}</p>
+        </>
+      )}
     </div>
   );
 
@@ -849,9 +986,21 @@ const Inbox = ({data,setData,isMobile}) => {
   const del=(id)=>{const u=data.inbox.filter(i=>i.id!==id);setData(d=>({...d,inbox:u}));save('inbox',u);};
   const convertToNote=(item)=>{
     const n={id:uid(),title:item.content.slice(0,50),content:item.content,tags:['inbox'],areaId:'',createdAt:today()};
-    const updN=[...data.notes,n];
+    const updN=[n,...data.notes];
     const updI=data.inbox.map(i=>i.id===item.id?{...i,processed:true}:i);
     setData(d=>({...d,notes:updN,inbox:updI}));save('notes',updN);save('inbox',updI);
+  };
+  const convertToTask=(item)=>{
+    const t={id:uid(),title:item.content.slice(0,80),projectId:'',status:'todo',priority:'media',dueDate:'',createdAt:today()};
+    const updT=[t,...data.tasks];
+    const updI=data.inbox.map(i=>i.id===item.id?{...i,processed:true}:i);
+    setData(d=>({...d,tasks:updT,inbox:updI}));save('tasks',updT);save('inbox',updI);
+  };
+  const convertToObjective=(item)=>{
+    const o={id:uid(),title:item.content.slice(0,80),areaId:'',deadline:'',status:'active'};
+    const updO=[o,...data.objectives];
+    const updI=data.inbox.map(i=>i.id===item.id?{...i,processed:true}:i);
+    setData(d=>({...d,objectives:updO,inbox:updI}));save('objectives',updO);save('inbox',updI);
   };
   return (
     <div>
@@ -867,7 +1016,9 @@ const Inbox = ({data,setData,isMobile}) => {
             <Card key={i.id} style={{marginBottom:10,borderLeft:`3px solid ${T.accent}`}}>
               <p style={{color:T.text,margin:'0 0 10px',fontSize:14,lineHeight:1.5}}>{i.content}</p>
               <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
-                <Btn size="sm" variant="ghost" onClick={()=>convertToNote(i)}>→ Nota</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>convertToNote(i)}>📝 Nota</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>convertToTask(i)}>✅ Tarea</Btn>
+                <Btn size="sm" variant="ghost" onClick={()=>convertToObjective(i)}>🎯 Objetivo</Btn>
                 <Btn size="sm" variant="ghost" onClick={()=>process(i)}>✓ Listo</Btn>
                 <Btn size="sm" variant="danger" onClick={()=>del(i.id)}><Icon name="trash" size={11}/></Btn>
               </div>
@@ -894,7 +1045,7 @@ const Inbox = ({data,setData,isMobile}) => {
 // ===================== HABIT TRACKER =====================
 const HabitTracker = ({data,setData,isMobile}) => {
   const [modal,setModal]=useState(false);
-  const [form,setForm]=useState({name:'',frequency:'daily'});
+  const [form,setForm]=useState({name:'',frequency:'daily',objectiveId:''});
   const numDays=isMobile?5:7;
   const nameColW=isMobile?'130px':'160px';
   const days=Array.from({length:numDays},(_,i)=>{
@@ -913,7 +1064,7 @@ const HabitTracker = ({data,setData,isMobile}) => {
     if(!form.name.trim())return;
     const updated=[...data.habits,{id:uid(),...form,completions:[]}];
     setData(d=>({...d,habits:updated}));save('habits',updated);
-    setModal(false);setForm({name:'',frequency:'daily'});
+    setModal(false);setForm({name:'',frequency:'daily',objectiveId:''});
   };
   const del=(id)=>{const u=data.habits.filter(h=>h.id!==id);setData(d=>({...d,habits:u}));save('habits',u);};
   const todayStr=today();
@@ -923,7 +1074,7 @@ const HabitTracker = ({data,setData,isMobile}) => {
     let s=0,d=new Date();
     const ld=()=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     while(h.completions.includes(ld())){s++;d.setDate(d.getDate()-1);}
-    return {name:h.name,streak:s};
+    return {id:h.id,name:h.name,streak:s};
   });
   const todayDone=data.habits.filter(h=>h.completions.includes(todayStr)).length;
   const todayTotal=data.habits.length;
@@ -952,7 +1103,7 @@ const HabitTracker = ({data,setData,isMobile}) => {
           <Card style={{textAlign:'center',padding:isMobile?10:14}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:2}}>Mejor racha</div>
             <div style={{fontSize:isMobile?20:24,fontWeight:700,color:bestStreak>=7?T.green:bestStreak>=3?T.accent:T.text}}>🔥 {bestStreak}d</div>
-            <div style={{fontSize:10,color:T.dim,marginTop:4}}>{streaks.find(s=>s.streak===bestStreak)?.name||''}</div>
+            <div style={{fontSize:10,color:T.dim,marginTop:4}}>{streaks.find(s=>s.streak===bestStreak&&s.streak>0)?.name||''}</div>
           </Card>
           <Card style={{textAlign:'center',padding:isMobile?10:14}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:2}}>Semana</div>
@@ -976,16 +1127,17 @@ const HabitTracker = ({data,setData,isMobile}) => {
           ))}
         </div>
         {data.habits.map(h=>{
-          const streak=streaks.find(s=>s.name===h.name)?.streak||0;
+          const streak=streaks.find(s=>s.id===h.id)?.streak||0;
           const weekDone=weekDates.filter(d=>h.completions.includes(d)).length;
           return (
             <div key={h.id} style={{display:'grid',gridTemplateColumns:`${nameColW} repeat(${numDays},1fr)`,borderBottom:`1px solid ${T.border}`}}>
               <div style={{padding:'12px 10px 12px 14px',display:'flex',alignItems:'center',gap:6}}>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{color:T.text,fontSize:12,fontWeight:500,lineHeight:1.3,wordBreak:'break-word'}}>{h.name}</div>
-                  <div style={{display:'flex',gap:6,marginTop:2}}>
+                  <div style={{display:'flex',gap:6,marginTop:2,flexWrap:'wrap'}}>
                     {streak>0&&<span style={{color:T.accent,fontSize:10}}>🔥 {streak}d</span>}
                     <span style={{color:weekDone>=5?T.green:T.dim,fontSize:10}}>{weekDone}/7 sem</span>
+                    {h.objectiveId&&(()=>{const o=data.objectives.find(x=>x.id===h.objectiveId);return o?<span style={{color:T.purple,fontSize:10}}>🎯 {o.title.slice(0,20)}{o.title.length>20?'…':''}</span>:null;})()}
                   </div>
                 </div>
                 <button onClick={()=>del(h.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:2,display:'flex',flexShrink:0}}><Icon name="trash" size={12}/></button>
@@ -1019,6 +1171,10 @@ const HabitTracker = ({data,setData,isMobile}) => {
             <Select value={form.frequency} onChange={v=>setForm(f=>({...f,frequency:v}))}>
               <option value="daily">Diario</option>
               <option value="weekly">Semanal</option>
+            </Select>
+            <Select value={form.objectiveId} onChange={v=>setForm(f=>({...f,objectiveId:v}))}>
+              <option value="">Sin objetivo vinculado</option>
+              {data.objectives.filter(o=>o.status==='active').map(o=><option key={o.id} value={o.id}>🎯 {o.title}</option>)}
             </Select>
             <Btn onClick={add} style={{width:'100%',justifyContent:'center'}}>Crear hábito</Btn>
           </div>
@@ -1844,6 +2000,7 @@ export default function App() {
   const [viewHint,setViewHint]=useState(null);
   const [data,setData]=useState(null);
   const [showMore,setShowMore]=useState(false);
+  const [showSearch,setShowSearch]=useState(false);
   const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
   const isMobile=useIsMobile();
 
@@ -1859,8 +2016,7 @@ export default function App() {
         load('areas',def.areas),load('objectives',def.objectives),load('projects',def.projects),
         load('tasks',def.tasks),load('notes',def.notes),load('inbox',def.inbox),load('habits',def.habits),load('budget',def.budget),
       ]);
-      const linkedObj=objectives.map(o=>({...o,areaId:o.areaId||areas[0]?.id||''}));
-      setData({areas,objectives:linkedObj,projects,tasks,notes,inbox,habits,budget});
+      setData({areas,objectives,projects,tasks,notes,inbox,habits,budget});
     })();
   },[]);
 
@@ -1877,7 +2033,7 @@ export default function App() {
     areas:<Areas {...props} onNavigate={navigate}/>,
     areaDetail:<AreaDetail {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)} onNavigate={navigate}/>,
     objectives:<Objectives {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)} onNavigate={navigate}/>,
-    projects:<ProjectsAndTasks {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)}/>,
+    projects:<ProjectsAndTasks {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)} onNavigate={navigate}/>,
     notes:<Notes {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)}/>,
     inbox:<Inbox {...props}/>,
     habits:<HabitTracker {...props}/>,
@@ -1889,7 +2045,7 @@ export default function App() {
     <div style={{display:'flex',flexDirection:isMobile?'column':'row',height:'100dvh',width:'100%',background:T.bg,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text,overflow:'hidden',position:'fixed',inset:0}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
-        html,body,#root{margin:0;padding:0;width:100%;height:100%;background:#0d1117;}
+        html,body,#root{margin:0;padding:0;width:100%;height:100%;background:#090e13;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-track{background:transparent;}
@@ -1928,6 +2084,9 @@ export default function App() {
             })}
           </nav>
           <div style={{padding:'12px 16px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
+            <button onClick={()=>setShowSearch(true)} style={{display:'flex',alignItems:'center',gap:8,background:'transparent',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit',width:'100%',marginBottom:4}}>
+              🔍 <span>Búsqueda global</span>
+            </button>
             <div style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={()=>navTo('settings')}>
               <span style={{width:7,height:7,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block',flexShrink:0}}/>
               <span style={{fontSize:11,color:apiKey?T.green:T.red,fontWeight:600}}>{apiKey?'Gemini activo':'Sin API Key'}</span>
@@ -1948,11 +2107,14 @@ export default function App() {
               Segundo <span style={{color:T.accent}}>Cerebro</span>
             </span>
           </div>
+          <div style={{display:'flex',gap:8,alignItems:'center'}}>
           {inboxCount>0&&<span style={{background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12}}>{inboxCount} inbox</span>}
+          <button onClick={()=>setShowSearch(true)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>🔍</button>
           <button onClick={()=>navTo('settings')} style={{background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
             <span style={{width:6,height:6,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block'}}/>
             {apiKey?'IA ON':'IA OFF'}
           </button>
+          </div>
         </div>
       )}
 
@@ -2000,6 +2162,9 @@ export default function App() {
           </div>
         </>
       )}
+
+      {/* GLOBAL SEARCH OVERLAY */}
+      {showSearch&&data&&<GlobalSearch data={data} onNavigate={(v,h)=>{navigate(v,h);}} onClose={()=>setShowSearch(false)}/>}
 
       {/* PSICKE — FLOATING BUBBLE */}
       <Psicke apiKey={apiKey} onGoSettings={()=>navTo('settings')} data={data} setData={setData}/>
