@@ -691,251 +691,9 @@ const HabitTracker = ({data,setData,isMobile}) => {
   );
 };
 
-// ===================== AI ASSISTANT =====================
-const GEMINI_MODEL='gemini-2.0-flash-lite';
-const TODAY_DATE=new Date().toISOString().split('T')[0];
+// ===================== GEMINI CONFIG =====================
+const GEMINI_MODEL='gemini-2.5-flash-lite';
 
-const buildSystemPrompt=(ctx)=>`Eres el "Segundo Cerebro" — un asistente de memoria personal brutalmente eficiente, directo, y con humor ácido cuando el usuario es vago.
-
-FECHA HOY: ${TODAY_DATE}
-
-═══ TU DOBLE FUNCIÓN ═══
-1. CONSULTAS: Responde preguntas sobre los datos del usuario (notas, tareas, hábitos, objetivos).
-2. CAPTURA: Cuando el usuario comparte información nueva para recordar, la capturas y estructuras.
-
-═══ DATOS ACTUALES DEL USUARIO ═══
-${ctx}
-
-═══ PROTOCOLO DE CAPTURA ═══
-Cuando detectes información nueva a guardar (gasto, evento, idea, tarea, compra, logro):
-1. Evalúa si tienes: concepto claro, categoría y fecha.
-2. Si falta algo → UNA pregunta directa y ligeramente sarcástica. Máx 2 líneas.
-3. Si tienes todo → confirma con humor y genera el JSON.
-
-PREGUNTAS SARCÁSTICAS EJEMPLO:
-- Sin fecha: "¿Cuándo fue esto? ¿Hoy, o en algún momento difuso del pasado?"
-- Sin categoría: "¿Esto va en Finanzas, Trabajo, Personal... o en la categoría 'misterio'?"
-- Concepto vago: "Fascinante. ¿Podrías ser un 10% más específico?"
-
-═══ FORMATO DE GUARDADO (solo cuando tengas todo) ═══
-Una línea de confirmación ingeniosa, luego INMEDIATAMENTE:
-
-\`\`\`json
-{
-  "action": "SAVE_NOTE",
-  "data": {
-    "title": "Título conciso (máx 60 chars)",
-    "content": "Descripción completa con contexto relevante",
-    "tags": ["tag1", "tag2"],
-    "category": "Finanzas|Salud|Trabajo|Personal|Compras|Viajes|Ideas|Otro",
-    "cost": null,
-    "currency": null,
-    "importance": 3
-  }
-}
-\`\`\`
-
-═══ REGLAS ═══
-- NUNCA generes JSON sin tener título, contenido y categoría.
-- Importance: 5=crítico, 4=importante, 3=normal, 2=menor, 1=trivial.
-- Responde SIEMPRE en español. Sé conciso.
-- Para consultas sobre datos existentes, responde directamente sin JSON.`;
-
-const parseNote=(text)=>{
-  const m=text.match(/```json\s*([\s\S]*?)\s*```/);
-  if(!m)return null;
-  try{const p=JSON.parse(m[1]);if(p.action==='SAVE_NOTE'&&p.data)return p.data;}catch(e){}
-  return null;
-};
-const stripJson=(text)=>text.replace(/```json[\s\S]*?```/g,'').trim();
-
-const AIAssistant = ({data,setData,isMobile,apiKey,onGoSettings}) => {
-  const [messages,setMessages]=useState([{role:'assistant',content:'¡Listo! Soy tu Segundo Cerebro con IA. Puedo responder preguntas sobre tus datos o guardar información nueva. Habla, dicta o sube una imagen. 🧠'}]);
-  const [input,setInput]=useState('');
-  const [loading,setLoading]=useState(false);
-  const [recording,setRecording]=useState(false);
-  const bottomRef=useRef(null);
-  const recRef=useRef(null);
-  const fileRef=useRef(null);
-
-  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[messages]);
-
-  const buildCtx=useCallback(()=>JSON.stringify({
-    areas:data.areas.map(a=>({name:a.name})),
-    objectives:data.objectives.filter(o=>o.status==='active').map(o=>({title:o.title,deadline:o.deadline})),
-    projects:data.projects.map(p=>({title:p.title,status:p.status})),
-    tasks:data.tasks.filter(t=>t.status!=='done').slice(0,10).map(t=>({title:t.title,priority:t.priority})),
-    notes:data.notes.slice(0,20).map(n=>({title:n.title,tags:n.tags,date:n.createdAt})),
-    inbox:data.inbox.filter(i=>!i.processed).slice(0,5).map(i=>({content:i.content})),
-    habits:data.habits.map(h=>{let s=0,d=new Date();while(h.completions.includes(d.toISOString().split('T')[0])){s++;d.setDate(d.getDate()-1);}return{name:h.name,streak:s};}),
-  },null,2),[data]);
-
-  const callGemini=async(history,imageB64=null)=>{
-    const key=(apiKey||'').trim().replace(/\s+/g,'');
-    const sysEntry={role:'user',parts:[{text:`[INSTRUCCIONES DEL SISTEMA]\n${buildSystemPrompt(buildCtx())}\n\n[Confirma rol brevemente]`}]};
-    const sysReply={role:'model',parts:[{text:'Entendido. Soy tu Segundo Cerebro: capturo, estructuro y recuerdo. Adelante.'}]};
-    const contents=[sysEntry,sysReply,...history.map((m,i)=>{
-      const parts=[];
-      if(m.image&&i===history.length-1)parts.push({inlineData:{mimeType:'image/jpeg',data:m.image}});
-      parts.push({text:m.content||' '});
-      return{role:m.role==='assistant'?'model':'user',parts};
-    })];
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({contents,generationConfig:{temperature:0.75,maxOutputTokens:1024}})
-    });
-    if(!res.ok){
-      const err=await res.json().catch(()=>({}));
-      throw new Error(err?.error?.message||`HTTP ${res.status}`);
-    }
-    const d=await res.json();
-    if(d.error)throw new Error(d.error.message);
-    return d.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta.';
-  };
-
-  const send=async(textOverride=null,imageB64=null)=>{
-    const text=(textOverride??input).trim();
-    if(!text&&!imageB64)return;
-    if(!apiKey){onGoSettings();return;}
-    const userMsg={role:'user',content:text||'Analiza esta imagen',image:imageB64,ts:Date.now()};
-    const next=[...messages,userMsg];
-    setMessages(next);setInput('');setLoading(true);
-    try{
-      const raw=await callGemini(next,imageB64);
-      const noteData=parseNote(raw);
-      const display=stripJson(raw);
-      let savedId=null;
-      if(noteData){
-        const n={id:uid(),title:noteData.title,content:`${noteData.content}${noteData.cost?`\n💰 ${noteData.currency||'$'}${noteData.cost}`:''}`,
-          tags:[...(noteData.tags||[]),noteData.category?.toLowerCase()||'ia'].filter(Boolean),
-          areaId:'',createdAt:TODAY_DATE,_importance:noteData.importance,_savedByAI:true};
-        savedId=n.id;
-        const updN=[n,...data.notes];
-        setData(d=>({...d,notes:updN}));
-        await save('notes',updN);
-      }
-      setMessages(p=>[...p,{role:'assistant',content:display,savedNote:savedId,ts:Date.now()}]);
-    }catch(e){
-      setMessages(p=>[...p,{role:'assistant',content:`⚠️ Error: ${e.message}`,isErr:true,ts:Date.now()}]);
-    }
-    setLoading(false);
-  };
-
-  const toggleMic=()=>{
-    if(recording){recRef.current?.stop();setRecording(false);return;}
-    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-    if(!SR){alert('Tu navegador no soporta reconocimiento de voz');return;}
-    const r=new SR();r.lang='es-MX';r.continuous=false;r.interimResults=false;
-    r.onresult=e=>{setInput(e.results[0][0].transcript);setRecording(false);};
-    r.onerror=r.onend=()=>setRecording(false);
-    recRef.current=r;r.start();setRecording(true);
-  };
-
-  const handleImage=e=>{
-    const f=e.target.files[0];if(!f)return;e.target.value='';
-    const reader=new FileReader();
-    reader.onload=ev=>{const b64=ev.target.result.split(',')[1];send('Analiza esta imagen y extrae toda la información relevante para guardar en mi Segundo Cerebro.',b64);};
-    reader.readAsDataURL(f);
-  };
-
-  const savedNote=(id)=>data.notes.find(n=>n.id===id);
-
-  if(!apiKey) return (
-    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:isMobile?'calc(100vh - 200px)':'calc(100vh - 200px)',gap:16,textAlign:'center',padding:24}}>
-      <div style={{width:60,height:60,background:`${T.accent}22`,borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center'}}>
-        <Icon name="key" size={28} color={T.accent}/>
-      </div>
-      <div>
-        <h3 style={{color:T.text,margin:'0 0 8px',fontSize:18}}>Configura tu API Key</h3>
-        <p style={{color:T.muted,margin:0,fontSize:14,lineHeight:1.6,maxWidth:280}}>Necesitas una API Key de Google Gemini para activar el asistente IA.</p>
-      </div>
-      <Btn onClick={onGoSettings}><Icon name="cog" size={16}/>Ir a Configuración</Btn>
-      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:T.blue,fontSize:13}}>Obtener API Key gratis →</a>
-    </div>
-  );
-
-  return (
-    <div style={{display:'flex',flexDirection:'column',height:isMobile?'calc(100vh - 160px)':'calc(100vh - 120px)'}}>
-      <PageHeader title="IA — Segundo Cerebro" subtitle="Consulta datos o dicta información para guardar" isMobile={isMobile}/>
-
-      {/* Messages */}
-      <div style={{flex:1,overflowY:'auto',marginBottom:12,display:'flex',flexDirection:'column',gap:10}}>
-        {messages.map((m,i)=>{
-          const note=m.savedNote?savedNote(m.savedNote):null;
-          const isUser=m.role==='user';
-          return (
-            <div key={i}>
-              <div style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}}>
-                {m.image&&<div style={{maxWidth:200,marginBottom:6,marginLeft:isUser?'auto':0,borderRadius:10,overflow:'hidden',display:'block'}}>
-                  <img src={`data:image/jpeg;base64,${m.image}`} alt="" style={{width:'100%',display:'block'}}/>
-                </div>}
-              </div>
-              {m.content&&<div style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}}>
-                <div style={{maxWidth:'85%',padding:'10px 14px',borderRadius:14,lineHeight:1.6,fontSize:14,whiteSpace:'pre-wrap',
-                  background:isUser?T.accent:m.isErr?'rgba(248,81,73,0.15)':T.surface,
-                  color:isUser?'#000':m.isErr?T.red:T.text,
-                  borderBottomRightRadius:isUser?2:14,borderBottomLeftRadius:!isUser?2:14,
-                  border:!isUser?`1px solid ${T.border}`:'none'}}>
-                  {!isUser&&<span style={{color:T.accent,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Cerebro IA</span>}
-                  {m.content}
-                </div>
-              </div>}
-              {note&&<div style={{display:'flex',justifyContent:'flex-start',marginTop:6}}>
-                <div style={{maxWidth:'85%',padding:'10px 14px',borderRadius:12,background:`${T.green}12`,border:`1px solid ${T.green}30`,display:'flex',alignItems:'center',gap:10}}>
-                  <Icon name="checkCircle" size={16} color={T.green}/>
-                  <div>
-                    <div style={{color:T.green,fontSize:12,fontWeight:600}}>Guardado en Notas</div>
-                    <div style={{color:T.muted,fontSize:12,marginTop:1}}>{note.title}</div>
-                  </div>
-                </div>
-              </div>}
-            </div>
-          );
-        })}
-        {loading&&<div style={{display:'flex',justifyContent:'flex-start'}}>
-          <div style={{padding:'10px 16px',borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:14}}>
-            <span style={{color:T.accent,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Cerebro IA</span>
-            Procesando{[0,1,2].map(i=><span key={i} style={{display:'inline-block',animation:`bounce 1s ${i*0.2}s infinite`}}>.</span>)}
-          </div>
-        </div>}
-        <div ref={bottomRef}/>
-      </div>
-
-      {/* Mic row */}
-      <div style={{display:'flex',justifyContent:'center',marginBottom:10}}>
-        <button onClick={toggleMic} style={{
-          width:56,height:56,borderRadius:'50%',border:`2px solid ${recording?T.red:T.border}`,
-          background:recording?`${T.red}22`:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
-          color:recording?T.red:T.muted,transition:'all 0.2s',animation:recording?'pulse 1.5s infinite':'none'
-        }}>
-          <Icon name={recording?'micoff':'mic'} size={22} color={recording?T.red:undefined}/>
-        </button>
-      </div>
-      {recording&&<div style={{textAlign:'center',color:T.red,fontSize:12,marginBottom:8,fontWeight:500}}>● Escuchando...</div>}
-
-      {/* Text input row */}
-      <div style={{display:'flex',gap:8}}>
-        <button onClick={()=>fileRef.current?.click()} style={{
-          width:42,height:42,borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',
-          cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,flexShrink:0
-        }}>
-          <Icon name="image" size={18}/>
-        </button>
-        <Input value={input} onChange={setInput} placeholder="Escribe o dicta para guardar..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}/>
-        <button onClick={()=>send()} disabled={!input.trim()||loading} style={{
-          width:42,height:42,borderRadius:10,border:'none',
-          background:input.trim()&&!loading?T.accent:'transparent',
-          cursor:input.trim()&&!loading?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
-          border:input.trim()&&!loading?'none':`1px solid ${T.border}`
-        }}>
-          <Icon name="send" size={18} color={input.trim()&&!loading?'#000':T.dim}/>
-        </button>
-      </div>
-      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleImage}/>
-      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,0.4)}50%{box-shadow:0 0 0 8px rgba(248,81,73,0)}}`}</style>
-    </div>
-  );
-};
 
 // ===================== SETTINGS =====================
 const Settings = ({apiKey,setApiKey,isMobile}) => {
@@ -1007,7 +765,7 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
         <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>Acerca del Asistente</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {[
-            {icon:'brain',label:'Modelo',val:'Google gemini-2.0-flash-lite'},
+            {icon:'brain',label:'Modelo',val:'Google gemini-2.5-flash-lite'},
             {icon:'note',label:'Auto-guardado',val:'Notas + etiquetas'},
             {icon:'mic',label:'Voz',val:'Web Speech API (español)'},
             {icon:'image',label:'Imágenes',val:'OCR visual con Gemini'},
@@ -1083,12 +841,15 @@ const Psicke=({apiKey,onGoSettings})=>{
         generationConfig:{temperature:0.85,maxOutputTokens:512},
       };
       const res=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${key}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
         {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
       );
       if(!res.ok){
         const err=await res.json().catch(()=>({}));
-        throw new Error(err?.error?.message||`HTTP ${res.status}`);
+        const emsg=err?.error?.message||`HTTP ${res.status}`;
+        if(res.status===429||emsg.toLowerCase().includes('quota'))
+          throw new Error('Cuota agotada. Espera unos minutos o revisa tu plan en ai.google.dev/rate-limit');
+        throw new Error(emsg);
       }
       const d=await res.json();
       const reply=d.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta.';
