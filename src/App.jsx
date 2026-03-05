@@ -1078,9 +1078,10 @@ export default function App() {
   const isMoreActive=MORE_NAV.some(n=>n.id===view);
 
   return (
-    <div style={{display:'flex',flexDirection:isMobile?'column':'row',height:'100vh',background:T.bg,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text,overflow:'hidden'}}>
+    <div style={{display:'flex',flexDirection:isMobile?'column':'row',height:'100dvh',width:'100%',background:T.bg,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text,overflow:'hidden',position:'fixed',inset:0}}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+        html,body,#root{margin:0;padding:0;width:100%;height:100%;background:#0d1117;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-track{background:transparent;}
@@ -1148,7 +1149,7 @@ export default function App() {
       )}
 
       {/* MAIN CONTENT */}
-      <main style={{flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px'}}>
+      <main style={{flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0}}>
         {views[view]}
       </main>
 
