@@ -2,13 +2,14 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 // ===================== THEME =====================
 const T = {
-  bg: '#0d1117', surface: '#161b22', surface2: '#1c2230',
-  border: '#21262d', borderLight: '#30363d',
-  accent: '#d4a017', accentHover: '#e8b420',
-  text: '#e6edf3', muted: '#8b949e', dim: '#484f58',
-  green: '#3fb950', red: '#f85149', blue: '#58a6ff',
-  purple: '#bc8cff', orange: '#f78166',
-  areaColors: ['#58a6ff','#3fb950','#d4a017','#bc8cff','#f78166','#79c0ff','#ffa657','#ff7b72'],
+  bg: '#090e13', surface: '#0f1923', surface2: '#162030',
+  border: '#1e2d3d', borderLight: '#243447',
+  accent: '#00c896', accentHover: '#00e0a8',
+  text: '#e2eaf4', muted: '#6b8299', dim: '#3a5068',
+  green: '#00c896', red: '#ff5c5c', blue: '#4da6ff',
+  purple: '#a78bfa', orange: '#ff8c42',
+  userBubble: '#00c896', userText: '#000',
+  areaColors: ['#4da6ff','#00c896','#ff8c42','#a78bfa','#ff5c5c','#00e0a8','#ffd166','#ff6b8a'],
 };
 
 // ===================== RESPONSIVE HOOK =====================
@@ -1452,6 +1453,10 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
   const [loading,setLoading]=useState(false);
   const [recording,setRecording]=useState(false);
   const [pulse,setPulse]=useState(false);
+  const [msgMenu,setMsgMenu]=useState(null); // index of msg showing actions
+  const [editingIdx,setEditingIdx]=useState(null);
+  const [editVal,setEditVal]=useState('');
+  const [copied,setCopied]=useState(null);
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -1640,7 +1645,7 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
     <>
       <style>{`
         @keyframes psicke-in{from{opacity:0;transform:translateY(32px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-        @keyframes psicke-pulse{0%,100%{box-shadow:0 0 0 0 rgba(212,160,23,0.5)}50%{box-shadow:0 0 0 12px rgba(212,160,23,0)}}
+        @keyframes psicke-pulse{0%,100%{box-shadow:0 0 0 0 rgba(0,200,150,0.5)}50%{box-shadow:0 0 0 12px rgba(0,200,150,0)}}
         @keyframes psicke-dot{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
         @keyframes psicke-ring{0%{opacity:0.6;transform:scale(1)}100%{opacity:0;transform:scale(1.8)}}
         .psicke-bubble:active{transform:scale(0.93)!important;}
@@ -1686,22 +1691,92 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
             </div>
 
             {/* Messages */}
-            <div style={{flex:1,overflowY:'auto',padding:'0 16px',display:'flex',flexDirection:'column',gap:10,minHeight:0}}>
+            <div style={{flex:1,overflowY:'auto',padding:'0 16px',display:'flex',flexDirection:'column',gap:10,minHeight:0}}
+              onClick={()=>setMsgMenu(null)}>
               {msgs.map((m,i)=>{
                 const isUser=m.role==='user';
+                const showMenu=msgMenu===i;
+                const isEditing=editingIdx===i;
                 return(
-                  <div key={i} style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}}>
-                    {!isUser&&<div style={{width:24,height:24,borderRadius:7,background:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginRight:8,marginTop:2}}>
-                      <Icon name="brain" size={12} color={T.accent}/>
-                    </div>}
-                    <div style={{maxWidth:'82%',padding:'9px 13px',borderRadius:13,fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',
-                      background:isUser?T.accent:T.surface2,
-                      color:isUser?'#000':T.text,
-                      borderBottomRightRadius:isUser?2:13,
-                      borderBottomLeftRadius:!isUser?2:13,
-                      border:!isUser?`1px solid ${T.border}`:'none'}}>
-                      {m.content}
+                  <div key={i} style={{display:'flex',flexDirection:'column',alignItems:isUser?'flex-end':'flex-start'}}>
+                    <div style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start',alignItems:'flex-end',gap:6}}>
+                      {!isUser&&<div style={{width:24,height:24,borderRadius:7,background:`${T.accent}22`,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,marginBottom:2}}>
+                        <Icon name="brain" size={12} color={T.accent}/>
+                      </div>}
+                      {isUser&&isEditing?(
+                        <div style={{maxWidth:'82%',display:'flex',flexDirection:'column',gap:6}}>
+                          <textarea value={editVal} onChange={e=>setEditVal(e.target.value)}
+                            autoFocus rows={3}
+                            style={{width:'100%',background:T.surface2,border:`1px solid ${T.accent}`,color:T.text,
+                              padding:'8px 12px',borderRadius:12,fontSize:14,outline:'none',resize:'none',
+                              fontFamily:'inherit',lineHeight:1.5,boxSizing:'border-box'}}/>
+                          <div style={{display:'flex',gap:6,justifyContent:'flex-end'}}>
+                            <button onClick={()=>{setEditingIdx(null);setEditVal('');}}
+                              style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 12px',
+                                cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit'}}>
+                              Cancelar
+                            </button>
+                            <button onClick={()=>{
+                                if(!editVal.trim())return;
+                                // Truncate history to this message and resend with edited content
+                                const trimmed=msgs.slice(0,i);
+                                saveMsgs(trimmed);
+                                setEditingIdx(null);setEditVal('');setMsgMenu(null);
+                                setTimeout(()=>send(editVal.trim()),50);
+                              }}
+                              style={{background:T.accent,border:'none',borderRadius:8,padding:'4px 14px',
+                                cursor:'pointer',color:T.userText||'#000',fontSize:12,fontFamily:'inherit',fontWeight:600}}>
+                              Enviar
+                            </button>
+                          </div>
+                        </div>
+                      ):(
+                        <div
+                          onClick={e=>{if(isUser){e.stopPropagation();setMsgMenu(showMenu?null:i);}}}
+                          style={{maxWidth:'82%',padding:'9px 13px',borderRadius:13,fontSize:14,lineHeight:1.6,whiteSpace:'pre-wrap',
+                            background:isUser?(T.userBubble||T.accent):T.surface2,
+                            color:isUser?(T.userText||'#000'):T.text,
+                            borderBottomRightRadius:isUser?2:13,
+                            borderBottomLeftRadius:!isUser?2:13,
+                            border:!isUser?`1px solid ${T.border}`:'none',
+                            cursor:isUser?'pointer':'default',
+                            transition:'opacity 0.15s',
+                            opacity:isUser&&showMenu?0.85:1}}>
+                          {m.content}
+                        </div>
+                      )}
                     </div>
+                    {/* Action bar for user messages */}
+                    {isUser&&showMenu&&!isEditing&&(
+                      <div onClick={e=>e.stopPropagation()}
+                        style={{display:'flex',gap:4,marginTop:4,marginRight:2,
+                          animation:'psicke-in 0.15s ease-out both'}}>
+                        {[
+                          {label:copied===i?'✓ Copiado':'Copiar', action:()=>{
+                            navigator.clipboard?.writeText(m.content).catch(()=>{});
+                            setCopied(i);setTimeout(()=>setCopied(null),2000);
+                          }},
+                          {label:'Editar', action:()=>{
+                            setEditVal(m.content);setEditingIdx(i);setMsgMenu(null);
+                          }},
+                          {label:'Reenviar', action:()=>{
+                            // Trim history to just before this msg and resend it
+                            const trimmed=msgs.slice(0,i);
+                            saveMsgs(trimmed);setMsgMenu(null);
+                            setTimeout(()=>send(m.content),50);
+                          }},
+                        ].map(btn=>(
+                          <button key={btn.label} onClick={btn.action}
+                            style={{background:T.surface2,border:`1px solid ${T.border}`,borderRadius:8,
+                              padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:11,
+                              fontFamily:'inherit',transition:'all 0.15s',fontWeight:500}}
+                            onMouseEnter={e=>e.currentTarget.style.color=T.accent}
+                            onMouseLeave={e=>e.currentTarget.style.color=T.muted}>
+                            {btn.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1757,7 +1832,7 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
             width:54,height:54,borderRadius:'50%',border:'none',cursor:'pointer',
             background:`linear-gradient(135deg,${T.accent},${T.orange})`,
             display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,
-            boxShadow:'0 4px 20px rgba(212,160,23,0.4)',
+            boxShadow:'0 4px 20px rgba(0,200,150,0.35)',
             transition:'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
             animation:pulse?'psicke-pulse 1.2s ease-out':'none',
           }}>
