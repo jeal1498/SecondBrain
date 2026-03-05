@@ -23,14 +23,23 @@ const useIsMobile = () => {
 };
 
 // ===================== STORAGE =====================
+// Uses localStorage as primary (works everywhere: Vercel, browsers, etc.)
+// Also syncs to window.storage when available (Claude.ai artifact env)
 const save = async (key, val) => {
-  try { await window.storage?.set(key, JSON.stringify(val)); } catch(e) {}
+  const str = JSON.stringify(val);
+  try { localStorage.setItem(key, str); } catch(e) {}
+  try { await window.storage?.set(key, str); } catch(e) {}
 };
 const load = async (key, def) => {
   try {
     const r = await window.storage?.get(key);
-    return r ? JSON.parse(r.value) : def;
-  } catch(e) { return def; }
+    if (r?.value) return JSON.parse(r.value);
+  } catch(e) {}
+  try {
+    const item = localStorage.getItem(key);
+    if (item) return JSON.parse(item);
+  } catch(e) {}
+  return def;
 };
 
 // ===================== ICONS =====================
@@ -945,20 +954,38 @@ ${notesSummary || '(sin notas)'}
 Inbox sin procesar: ${inboxPending.length} items
 Hábitos: ${habitNames || '(sin hábitos)'}
 
-═══ PROTOCOLO DE GUARDADO INDIVIDUAL ═══
-Para items sueltos ("guárdame esto", "anota que...", "tengo un pendiente"):
-1. Confirma brevemente.
-2. Genera el JSON:
+═══ PROTOCOLO DE CLASIFICACIÓN INTELIGENTE ═══
+Antes de guardar, DECIDE el tipo correcto. NUNCA mandes al inbox algo que ya puedes clasificar.
+
+ÁRBOL DE DECISIÓN — aplícalo en orden:
+1. ¿Hay algo que HACER en el futuro? → SAVE_TASK
+   Ejemplos: "recuerda llamar al médico", "tengo que pagar la renta", "pendiente: mandar el reporte"
+
+2. ¿Es un REGISTRO, DATO, GASTO, APRENDIZAJE o REFERENCIA? → SAVE_NOTE con área correcta
+   Ejemplos:
+   - "pagué 200 en gas lp" → Nota en área Finanzas, tags: ["gastos","transporte"]
+   - "aprendí que el ayuno mejora X" → Nota en área Salud, tags: ["salud","aprendizaje"]
+   - "el cliente dijo que prefiere entregas los lunes" → Nota en área Trabajo, tags: ["clientes"]
+   - "idea para el negocio: ofrecer suscripción mensual" → Nota en área Trabajo, tags: ["ideas"]
+   - "gasté 500 en la despensa" → Nota en área Finanzas, tags: ["gastos","alimentación"]
+
+3. ¿Es algo AMBIGUO que no sabes aún si es tarea, nota o proyecto? → SAVE_INBOX
+   Solo usar inbox cuando genuinamente no hay suficiente contexto para clasificar.
+
+REGLA DE ORO: El inbox es el ÚLTIMO recurso, no el primero. Si el usuario menciona un área obvia (dinero/gastos → Finanzas, salud/ejercicio → Salud, trabajo/clientes → Trabajo), clasifícalo directo como nota en esa área.
+
+ÁREA EN NOTAS: Siempre incluye el areaId correcto buscando coincidencia con las áreas del usuario:
+Áreas disponibles: ${areaNames || 'Ninguna (guardar sin área)'}
+
+Nota con área: \`\`\`json
+{"action":"SAVE_NOTE","data":{"title":"título","content":"detalle completo","tags":["tag1","tag2"],"areaId":"id_del_area"}}
+\`\`\`
 
 Tarea: \`\`\`json
-{"action":"SAVE_TASK","data":{"title":"título conciso"}}
+{"action":"SAVE_TASK","data":{"title":"título accionable","priority":"media"}}
 \`\`\`
 
-Nota: \`\`\`json
-{"action":"SAVE_NOTE","data":{"title":"título","content":"detalle","tags":["tag1"]}}
-\`\`\`
-
-Inbox: \`\`\`json
+Inbox (solo si es ambiguo): \`\`\`json
 {"action":"SAVE_INBOX","data":{"content":"captura rápida"}}
 \`\`\`
 
@@ -1040,14 +1067,22 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
 
   // Persist and restore conversation
   useEffect(()=>{
+    try {
+      const local = localStorage.getItem('psicke_msgs');
+      if(local){ const saved=JSON.parse(local); if(saved?.length) setMsgs(saved); return; }
+    } catch(e) {}
     (async()=>{
-      try{
+      try {
         const r=await window.storage?.get('psicke_msgs');
-        if(r){const saved=JSON.parse(r.value);if(saved?.length)setMsgs(saved);}
-      }catch(e){}
+        if(r?.value){ const saved=JSON.parse(r.value); if(saved?.length) setMsgs(saved); }
+      } catch(e) {}
     })();
   },[]);
-  const saveMsgs=(m)=>{setMsgs(m);try{window.storage?.set('psicke_msgs',JSON.stringify(m));}catch(e){}};
+  const saveMsgs=(m)=>{
+    setMsgs(m);
+    try { localStorage.setItem('psicke_msgs', JSON.stringify(m)); } catch(e) {}
+    try { window.storage?.set('psicke_msgs', JSON.stringify(m)); } catch(e) {}
+  };
   const clearMsgs=()=>{saveMsgs([INIT_MSG]);};
 
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs,open]);
@@ -1135,10 +1170,17 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
           setData(d=>({...d,tasks:upd}));save('tasks',upd);
           savedLabel='📋 Tarea guardada';
         }else if(action.action==='SAVE_NOTE'&&action.data.title){
-          const n={id:uid(),title:action.data.title,content:action.data.content||'',tags:action.data.tags||[],areaId:'',createdAt:td};
+          // Resolve areaId: use explicit id, or match by name, or leave empty
+          let resolvedAreaId = action.data.areaId || '';
+          if(!resolvedAreaId && action.data.area){
+            const match = data.areas.find(a=>a.name.toLowerCase()===action.data.area?.toLowerCase());
+            resolvedAreaId = match?.id || '';
+          }
+          const areaLabel = resolvedAreaId ? data.areas.find(a=>a.id===resolvedAreaId) : null;
+          const n={id:uid(),title:action.data.title,content:action.data.content||'',tags:action.data.tags||[],areaId:resolvedAreaId,createdAt:td};
           const upd=[n,...data.notes];
           setData(d=>({...d,notes:upd}));save('notes',upd);
-          savedLabel='📝 Nota guardada';
+          savedLabel=`📝 Nota guardada${areaLabel?` · ${areaLabel.icon} ${areaLabel.name}`:''}`;
         }else if(action.action==='SAVE_INBOX'&&action.data.content){
           const i={id:uid(),content:action.data.content,createdAt:td,processed:false};
           const upd=[i,...data.inbox];
