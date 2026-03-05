@@ -68,6 +68,12 @@ const Icon = ({ name, size = 18, color }) => {
     cog: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
     key: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L21 8l-3-3"/></svg>,
     checkCircle: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+    journal: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>,
+    book: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>,
+    cart: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>,
+    graduation: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>,
+    star: <svg width={size} height={size} viewBox="0 0 24 24" fill={color||'currentColor'} stroke={color||'currentColor'} strokeWidth="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
+    starEmpty: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   };
   return <span style={{display:'inline-flex',alignItems:'center'}}>{icons[name]||null}</span>;
 };
@@ -94,6 +100,10 @@ const initData = () => ({
     {id:uid(),name:'Ejercicio',frequency:'daily',completions:[]},
   ],
   budget:[],
+  journal:[],
+  books:[],
+  shopping:[{id:uid(),name:'Leche',qty:2,unit:'L',category:'Lácteos',done:false,createdAt:today()},{id:uid(),name:'Pan integral',qty:1,unit:'pza',category:'Panadería',done:false,createdAt:today()}],
+  education:[],
 });
 
 // ===================== BASE COMPONENTS =====================
@@ -1981,12 +1991,570 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
     </>
   );
 };
+
+// ===================== JOURNAL =====================
+const Journal = ({data,setData,isMobile}) => {
+  const MOODS=[{e:'😄',l:'Genial'},{e:'🙂',l:'Bien'},{e:'😐',l:'Regular'},{e:'😔',l:'Mal'},{e:'😤',l:'Estresado'}];
+  const PROMPTS=['¿Qué salió bien hoy?','¿Qué aprendí hoy?','¿Por qué estoy agradecido?','¿Qué haría diferente?','¿Cuál es mi intención para mañana?'];
+  const [sel,setSel]=useState(null);
+  const [writing,setWriting]=useState(false);
+  const [form,setForm]=useState({mood:'',content:'',gratitude:'',intention:''});
+  const todayStr=today();
+  const todayEntry=(data.journal||[]).find(j=>j.date===todayStr);
+
+  const save=()=>{
+    if(!form.content.trim()&&!form.gratitude.trim())return;
+    const entry={id:uid(),date:todayStr,mood:form.mood,content:form.content,gratitude:form.gratitude,intention:form.intention,createdAt:todayStr};
+    const existing=(data.journal||[]).find(j=>j.date===todayStr);
+    const upd=existing?(data.journal||[]).map(j=>j.date===todayStr?{...j,...form}:j):[entry,...(data.journal||[])];
+    setData(d=>({...d,journal:upd}));
+    import('react').then(()=>{});
+    const s=JSON.stringify(upd);try{localStorage.setItem('journal',s);}catch(e){}
+    try{window.storage?.set('journal',s);}catch(e){}
+    setWriting(false);setSel(upd.find(j=>j.date===todayStr)||entry);
+  };
+
+  const del=(id)=>{
+    if(!window.confirm('¿Eliminar esta entrada?'))return;
+    const upd=(data.journal||[]).filter(j=>j.id!==id);
+    setData(d=>({...d,journal:upd}));
+    try{localStorage.setItem('journal',JSON.stringify(upd));}catch(e){}
+    try{window.storage?.set('journal',JSON.stringify(upd));}catch(e){}
+    if(sel?.id===id)setSel(null);
+  };
+
+  const openWrite=(entry)=>{
+    if(entry){setForm({mood:entry.mood||'',content:entry.content||'',gratitude:entry.gratitude||'',intention:entry.intention||''});}
+    else{setForm({mood:'',content:'',gratitude:'',intention:''});}
+    setWriting(true);
+  };
+
+  const streak=(()=>{let s=0,d=new Date();while(true){const ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;if(!(data.journal||[]).find(j=>j.date===ds))break;s++;d.setDate(d.getDate()-1);}return s;})();
+
+  return (
+    <div>
+      <PageHeader title="Journal" subtitle="Tu espacio de reflexión diaria." isMobile={isMobile}
+        action={<Btn size="sm" onClick={()=>openWrite(todayEntry)}><Icon name="plus" size={14}/>{todayEntry?'Editar hoy':'Escribir hoy'}</Btn>}/>
+
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22,fontWeight:700,color:T.accent}}>{streak}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>🔥 Días seguidos</div>
+        </Card>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22,fontWeight:700,color:T.purple}}>{(data.journal||[]).length}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>📖 Entradas</div>
+        </Card>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22}}>{todayEntry?.mood||'—'}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>Hoy</div>
+        </Card>
+      </div>
+
+      {/* Entry form */}
+      {writing&&(
+        <Card style={{marginBottom:20,border:`1px solid ${T.accent}40`}}>
+          <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:14}}>
+            {todayEntry?'Editando entrada de hoy':'Nueva entrada · '+new Date().toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}
+          </div>
+          <div style={{marginBottom:12}}>
+            <div style={{color:T.muted,fontSize:12,marginBottom:8}}>¿Cómo te sientes hoy?</div>
+            <div style={{display:'flex',gap:8}}>
+              {MOODS.map(m=><button key={m.e} onClick={()=>setForm(f=>({...f,mood:m.e}))}
+                style={{padding:'6px 12px',borderRadius:10,border:`2px solid ${form.mood===m.e?T.accent:T.border}`,background:form.mood===m.e?`${T.accent}18`:'transparent',cursor:'pointer',fontSize:18,transition:'all 0.15s'}}>{m.e}</button>)}
+            </div>
+          </div>
+          <div style={{marginBottom:12}}>
+            <div style={{color:T.muted,fontSize:12,marginBottom:6}}>Reflexión libre</div>
+            <Textarea value={form.content} onChange={v=>setForm(f=>({...f,content:v}))} placeholder="¿Qué pasó hoy? ¿Cómo te fue?..." rows={4}/>
+          </div>
+          <div style={{marginBottom:12}}>
+            <div style={{color:T.muted,fontSize:12,marginBottom:6}}>Agradecimiento</div>
+            <Input value={form.gratitude} onChange={v=>setForm(f=>({...f,gratitude:v}))} placeholder="Hoy estoy agradecido por..."/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{color:T.muted,fontSize:12,marginBottom:6}}>Intención para mañana</div>
+            <Input value={form.intention} onChange={v=>setForm(f=>({...f,intention:v}))} placeholder="Mañana quiero..."/>
+          </div>
+          <div style={{display:'flex',gap:10}}>
+            <Btn onClick={save} style={{flex:1,justifyContent:'center'}}>Guardar entrada</Btn>
+            <Btn variant="ghost" onClick={()=>setWriting(false)} style={{flex:1,justifyContent:'center'}}>Cancelar</Btn>
+          </div>
+        </Card>
+      )}
+
+      {/* Entry detail */}
+      {sel&&!writing&&(
+        <Card style={{marginBottom:20,borderLeft:`3px solid ${T.purple}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div>
+              <span style={{fontSize:20,marginRight:8}}>{sel.mood}</span>
+              <span style={{color:T.text,fontWeight:600}}>{new Date(sel.date+'T12:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}</span>
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>openWrite(sel)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit'}}>✏️ Editar</button>
+              <button onClick={()=>del(sel.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={15}/></button>
+            </div>
+          </div>
+          {sel.content&&<p style={{color:T.text,fontSize:14,lineHeight:1.7,margin:'0 0 10px',whiteSpace:'pre-wrap'}}>{sel.content}</p>}
+          {sel.gratitude&&<div style={{padding:'8px 12px',background:`${T.green}12`,borderRadius:8,marginBottom:8,color:T.green,fontSize:13}}>🙏 {sel.gratitude}</div>}
+          {sel.intention&&<div style={{padding:'8px 12px',background:`${T.blue}12`,borderRadius:8,color:T.blue,fontSize:13}}>🌅 {sel.intention}</div>}
+        </Card>
+      )}
+
+      {/* Entries list */}
+      <div>
+        <div style={{color:T.muted,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1,marginBottom:12}}>Historial</div>
+        {(data.journal||[]).length===0&&<p style={{color:T.dim,fontSize:13,textAlign:'center',padding:'20px 0'}}>Sin entradas aún. Empieza escribiendo hoy.</p>}
+        {(data.journal||[]).map(j=>(
+          <div key={j.id} onClick={()=>setSel(sel?.id===j.id?null:j)}
+            style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:sel?.id===j.id?T.surface2:T.surface,border:`1px solid ${sel?.id===j.id?T.accent:T.border}`,borderRadius:10,marginBottom:8,cursor:'pointer',transition:'all 0.15s'}}>
+            <div style={{fontSize:22,flexShrink:0}}>{j.mood||'📔'}</div>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{color:T.text,fontSize:13,fontWeight:500}}>{new Date(j.date+'T12:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'})}</div>
+              {j.content&&<div style={{color:T.muted,fontSize:12,marginTop:2}}>{j.content.slice(0,70)}{j.content.length>70?'…':''}</div>}
+            </div>
+            <div style={{flexShrink:0,color:T.dim,fontSize:11}}>{fmt(j.date)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ===================== BOOKS =====================
+const Books = ({data,setData,isMobile}) => {
+  const STATUSES=[{id:'want',label:'Por leer',color:T.blue,emoji:'📚'},{id:'reading',label:'Leyendo',color:T.accent,emoji:'📖'},{id:'done',label:'Leído',color:T.green,emoji:'✅'},{id:'abandoned',label:'Abandonado',color:T.dim,emoji:'❌'}];
+  const [modal,setModal]=useState(false);
+  const [filter,setFilter]=useState('all');
+  const [sel,setSel]=useState(null);
+  const [editing,setEditing]=useState(false);
+  const [form,setForm]=useState({title:'',author:'',status:'want',rating:0,review:'',genre:'',pages:''});
+
+  const saveBook=(isEdit=false)=>{
+    if(!form.title.trim())return;
+    const b={...form,id:isEdit?sel.id:uid(),pages:Number(form.pages)||0,createdAt:isEdit?(sel.createdAt||today()):today()};
+    const upd=isEdit?(data.books||[]).map(x=>x.id===b.id?b:x):[b,...(data.books||[])];
+    setData(d=>({...d,books:upd}));
+    const s=JSON.stringify(upd);try{localStorage.setItem('books',s);}catch(e){}try{window.storage?.set('books',s);}catch(e){}
+    setModal(false);setEditing(false);setSel(b);setForm({title:'',author:'',status:'want',rating:0,review:'',genre:'',pages:''});
+  };
+  const del=(id)=>{
+    if(!window.confirm('¿Eliminar este libro?'))return;
+    const upd=(data.books||[]).filter(b=>b.id!==id);
+    setData(d=>({...d,books:upd}));
+    try{localStorage.setItem('books',JSON.stringify(upd));}catch(e){}try{window.storage?.set('books',JSON.stringify(upd));}catch(e){}
+    if(sel?.id===id)setSel(null);
+  };
+  const openEdit=(b)=>{setForm({title:b.title,author:b.author||'',status:b.status,rating:b.rating||0,review:b.review||'',genre:b.genre||'',pages:b.pages||''});setEditing(true);setSel(b);setModal(true);};
+
+  const books=data.books||[];
+  const visible=filter==='all'?books:books.filter(b=>b.status===filter);
+  const reading=books.filter(b=>b.status==='reading').length;
+  const done=books.filter(b=>b.status==='done').length;
+
+  const StarRating=({val,onChange})=>(
+    <div style={{display:'flex',gap:4}}>
+      {[1,2,3,4,5].map(i=><button key={i} onClick={()=>onChange&&onChange(i===val?0:i)}
+        style={{background:'none',border:'none',cursor:onChange?'pointer':'default',padding:2,color:i<=val?T.accent:T.border}}>
+        <Icon name={i<=val?'star':'starEmpty'} size={18} color={i<=val?T.accent:T.border}/>
+      </button>)}
+    </div>
+  );
+
+  return (
+    <div>
+      <PageHeader title="Biblioteca" subtitle="Libros que lees, leíste y quieres leer." isMobile={isMobile}
+        action={<Btn size="sm" onClick={()=>{setEditing(false);setForm({title:'',author:'',status:'want',rating:0,review:'',genre:'',pages:''});setModal(true);}}><Icon name="plus" size={14}/>Agregar</Btn>}/>
+
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:8,marginBottom:20}}>
+        {STATUSES.map(s=>{
+          const cnt=books.filter(b=>b.status===s.id).length;
+          return <Card key={s.id} onClick={()=>setFilter(filter===s.id?'all':s.id)}
+            style={{textAlign:'center',padding:10,border:`1px solid ${filter===s.id?s.color:T.border}`,cursor:'pointer'}}>
+            <div style={{fontSize:18}}>{s.emoji}</div>
+            <div style={{fontSize:20,fontWeight:700,color:s.color}}>{cnt}</div>
+            <div style={{fontSize:10,color:T.muted,marginTop:1}}>{s.label}</div>
+          </Card>;
+        })}
+      </div>
+
+      {/* Book detail */}
+      {sel&&(
+        <Card style={{marginBottom:20,borderLeft:`3px solid ${T.accent}`}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+            <div style={{flex:1}}>
+              <div style={{color:T.text,fontWeight:700,fontSize:16}}>{sel.title}</div>
+              {sel.author&&<div style={{color:T.muted,fontSize:13,marginTop:2}}>por {sel.author}</div>}
+            </div>
+            <div style={{display:'flex',gap:6}}>
+              <button onClick={()=>openEdit(sel)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit'}}>✏️ Editar</button>
+              <button onClick={()=>del(sel.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={15}/></button>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:10,alignItems:'center'}}>
+            {(()=>{const s=STATUSES.find(x=>x.id===sel.status);return s?<Tag text={`${s.emoji} ${s.label}`} color={s.color}/>:null;})()}
+            {sel.genre&&<Tag text={sel.genre}/>}
+            {sel.pages>0&&<span style={{color:T.muted,fontSize:12}}>{sel.pages} págs</span>}
+          </div>
+          {sel.rating>0&&<div style={{marginBottom:8}}><StarRating val={sel.rating}/></div>}
+          {sel.review&&<p style={{color:T.text,fontSize:14,lineHeight:1.7,margin:0,fontStyle:'italic'}}>"{sel.review}"</p>}
+        </Card>
+      )}
+
+      {/* Book list */}
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(auto-fill,minmax(160px,1fr))',gap:10}}>
+        {visible.map(b=>{
+          const st=STATUSES.find(s=>s.id===b.status);
+          return <div key={b.id} onClick={()=>setSel(sel?.id===b.id?null:b)}
+            style={{padding:'12px 14px',background:T.surface,border:`1px solid ${sel?.id===b.id?T.accent:T.border}`,borderRadius:10,cursor:'pointer',transition:'border-color 0.15s',borderTop:`3px solid ${st?.color||T.border}`}}>
+            <div style={{color:T.text,fontSize:13,fontWeight:600,marginBottom:4,lineHeight:1.3}}>{b.title}</div>
+            {b.author&&<div style={{color:T.muted,fontSize:11,marginBottom:6}}>{b.author}</div>}
+            {b.rating>0&&<div style={{display:'flex',gap:1}}>{[1,2,3,4,5].map(i=><span key={i} style={{color:i<=b.rating?T.accent:T.border,fontSize:11}}>★</span>)}</div>}
+          </div>;
+        })}
+        {!visible.length&&<div style={{gridColumn:'1/-1',textAlign:'center',padding:'30px 0',color:T.dim}}><Icon name="book" size={40}/><p>Sin libros{filter!=='all'?' en esta categoría':' aún'}.</p></div>}
+      </div>
+
+      {modal&&(
+        <Modal title={editing?'Editar libro':'Nuevo libro'} onClose={()=>{setModal(false);setEditing(false);}}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <Input value={form.title} onChange={v=>setForm(f=>({...f,title:v}))} placeholder="Título del libro"/>
+            <Input value={form.author} onChange={v=>setForm(f=>({...f,author:v}))} placeholder="Autor"/>
+            <div style={{display:'flex',gap:10}}>
+              <Input value={form.genre} onChange={v=>setForm(f=>({...f,genre:v}))} placeholder="Género" style={{flex:1}}/>
+              <Input type="number" value={form.pages} onChange={v=>setForm(f=>({...f,pages:v}))} placeholder="Páginas" style={{flex:1}}/>
+            </div>
+            <Select value={form.status} onChange={v=>setForm(f=>({...f,status:v}))}>
+              {STATUSES.map(s=><option key={s.id} value={s.id}>{s.emoji} {s.label}</option>)}
+            </Select>
+            <div>
+              <div style={{color:T.muted,fontSize:12,marginBottom:6}}>Calificación</div>
+              <StarRating val={form.rating} onChange={v=>setForm(f=>({...f,rating:v}))}/>
+            </div>
+            <Textarea value={form.review} onChange={v=>setForm(f=>({...f,review:v}))} placeholder="Reseña o notas del libro..." rows={3}/>
+            <Btn onClick={()=>saveBook(editing)} style={{width:'100%',justifyContent:'center'}}>{editing?'Guardar cambios':'Agregar libro'}</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
+// ===================== SHOPPING =====================
+const Shopping = ({data,setData,isMobile}) => {
+  const [form,setForm]=useState({name:'',qty:'1',unit:'pza',category:''});
+  const [editId,setEditId]=useState(null);
+  const [editForm,setEditForm]=useState({});
+  const [catFilter,setCatFilter]=useState('all');
+  const UNITS=['pza','kg','g','L','mL','caja','bolsa','lata','frasco','paq'];
+
+  const saveItem=()=>{
+    if(!form.name.trim())return;
+    const item={id:uid(),...form,qty:Number(form.qty)||1,done:false,createdAt:today()};
+    const upd=[item,...(data.shopping||[])];
+    setData(d=>({...d,shopping:upd}));
+    const s=JSON.stringify(upd);try{localStorage.setItem('shopping',s);}catch(e){}try{window.storage?.set('shopping',s);}catch(e){}
+    setForm({name:'',qty:'1',unit:'pza',category:form.category});
+  };
+  const toggle=(id)=>{const u=(data.shopping||[]).map(i=>i.id===id?{...i,done:!i.done}:i);setData(d=>({...d,shopping:u}));const s=JSON.stringify(u);try{localStorage.setItem('shopping',s);}catch(e){}try{window.storage?.set('shopping',s);}catch(e){}};
+  const del=(id)=>{const u=(data.shopping||[]).filter(i=>i.id!==id);setData(d=>({...d,shopping:u}));const s=JSON.stringify(u);try{localStorage.setItem('shopping',s);}catch(e){}try{window.storage?.set('shopping',s);}catch(e){}};
+  const clearDone=()=>{const u=(data.shopping||[]).filter(i=>!i.done);setData(d=>({...d,shopping:u}));const s=JSON.stringify(u);try{localStorage.setItem('shopping',s);}catch(e){}try{window.storage?.set('shopping',s);}catch(e){}};
+
+  const items=data.shopping||[];
+  const pending=items.filter(i=>!i.done);
+  const done=items.filter(i=>i.done);
+  const cats=[...new Set(items.map(i=>i.category).filter(Boolean))];
+  const visible=(catFilter==='all'?items:items.filter(i=>i.category===catFilter));
+
+  return (
+    <div>
+      <PageHeader title="Lista de Compras" subtitle={`${pending.length} pendientes · ${done.length} en carrito`} isMobile={isMobile}
+        action={done.length>0&&<Btn size="sm" variant="ghost" onClick={clearDone}>Limpiar ✓</Btn>}/>
+
+      {/* Add form */}
+      <Card style={{marginBottom:20}}>
+        <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+          <Input value={form.name} onChange={v=>setForm(f=>({...f,name:v}))} placeholder="Producto..."
+            style={{flex:'2 1 120px'}} onKeyDown={e=>e.key==='Enter'&&saveItem()}/>
+          <Input type="number" value={form.qty} onChange={v=>setForm(f=>({...f,qty:v}))} placeholder="Cant."
+            style={{flex:'0 1 60px',padding:'10px 8px'}}/>
+          <Select value={form.unit} onChange={v=>setForm(f=>({...f,unit:v}))} style={{flex:'0 1 70px',padding:'10px 8px',fontSize:13}}>
+            {UNITS.map(u=><option key={u}>{u}</option>)}
+          </Select>
+          <Input value={form.category} onChange={v=>setForm(f=>({...f,category:v}))} placeholder="Categoría (ej: Frutas)"
+            style={{flex:'1 1 100px'}}/>
+          <button onClick={saveItem} style={{background:T.accent,border:'none',borderRadius:10,padding:'0 16px',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}>
+            <Icon name="plus" size={20} color="#000"/>
+          </button>
+        </div>
+      </Card>
+
+      {/* Category filter */}
+      {cats.length>0&&(
+        <div style={{display:'flex',gap:6,marginBottom:16,flexWrap:'wrap'}}>
+          <button onClick={()=>setCatFilter('all')} style={{padding:'4px 12px',borderRadius:20,border:`1px solid ${catFilter==='all'?T.accent:T.border}`,background:catFilter==='all'?`${T.accent}18`:'transparent',cursor:'pointer',color:catFilter==='all'?T.accent:T.muted,fontSize:12,fontFamily:'inherit'}}>Todos</button>
+          {cats.map(c=><button key={c} onClick={()=>setCatFilter(c===catFilter?'all':c)}
+            style={{padding:'4px 12px',borderRadius:20,border:`1px solid ${catFilter===c?T.accent:T.border}`,background:catFilter===c?`${T.accent}18`:'transparent',cursor:'pointer',color:catFilter===c?T.accent:T.muted,fontSize:12,fontFamily:'inherit'}}>{c}</button>)}
+        </div>
+      )}
+
+      {/* Items */}
+      {visible.filter(i=>!i.done).map(i=>(
+        <div key={i.id} style={{display:'flex',alignItems:'center',gap:10,padding:'11px 14px',background:T.surface,border:`1px solid ${T.border}`,borderRadius:10,marginBottom:8}}>
+          <button onClick={()=>toggle(i.id)} style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${T.border}`,background:'transparent',cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center',transition:'all 0.15s'}}/>
+          <div style={{flex:1,minWidth:0}}>
+            <span style={{color:T.text,fontSize:14,fontWeight:500}}>{i.name}</span>
+            {i.category&&<span style={{color:T.muted,fontSize:11,marginLeft:8}}>{i.category}</span>}
+          </div>
+          <span style={{color:T.accent,fontSize:13,fontWeight:600,flexShrink:0}}>{i.qty} {i.unit}</span>
+          <button onClick={()=>del(i.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={13}/></button>
+        </div>
+      ))}
+
+      {visible.filter(i=>i.done).length>0&&(
+        <div style={{marginTop:12,opacity:0.5}}>
+          <div style={{color:T.muted,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1,marginBottom:8}}>En carrito ✓</div>
+          {visible.filter(i=>i.done).map(i=>(
+            <div key={i.id} style={{display:'flex',alignItems:'center',gap:10,padding:'10px 14px',borderBottom:`1px solid ${T.border}`}}>
+              <button onClick={()=>toggle(i.id)} style={{width:22,height:22,borderRadius:'50%',border:`2px solid ${T.green}`,background:T.green,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>
+                <Icon name="check" size={11} color="#000"/>
+              </button>
+              <span style={{color:T.muted,fontSize:14,flex:1,textDecoration:'line-through'}}>{i.name}</span>
+              <span style={{color:T.dim,fontSize:12}}>{i.qty} {i.unit}</span>
+              <button onClick={()=>del(i.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={13}/></button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!visible.length&&<div style={{textAlign:'center',padding:'30px 0',color:T.dim}}><Icon name="cart" size={40}/><p>La lista está vacía.</p></div>}
+    </div>
+  );
+};
+
+// ===================== EDUCATION =====================
+const Education = ({data,setData,isMobile}) => {
+  const [modal,setModal]=useState(false);
+  const [noteModal,setNoteModal]=useState(false);
+  const [selSubject,setSelSubject]=useState(null);
+  const [subjectForm,setSubjectForm]=useState({name:'',icon:'📚',color:T.areaColors[3]});
+  const [noteForm,setNoteForm]=useState({title:'',content:'',tags:'',type:'apunte'});
+  const [editNote,setEditNote]=useState(null);
+  const [editNoteForm,setEditNoteForm]=useState({});
+  const [selNote,setSelNote]=useState(null);
+
+  const ICONS=['📚','🔬','💻','🧮','🎨','🏛️','🌍','⚗️','📐','🎵','📖','🧠'];
+  const NOTE_TYPES=[{id:'apunte',label:'Apunte',color:T.blue},{id:'tarea',label:'Tarea',color:T.orange},{id:'examen',label:'Examen',color:T.red},{id:'resumen',label:'Resumen',color:T.green}];
+
+  const edu=data.education||[];
+
+  const saveSubject=()=>{
+    if(!subjectForm.name.trim())return;
+    const s={id:uid(),...subjectForm,notes:[],createdAt:today()};
+    const upd=[...edu,s];
+    setData(d=>({...d,education:upd}));
+    const str=JSON.stringify(upd);try{localStorage.setItem('education',str);}catch(e){}try{window.storage?.set('education',str);}catch(e){}
+    setModal(false);setSubjectForm({name:'',icon:'📚',color:T.areaColors[3]});
+    setSelSubject(s);
+  };
+  const delSubject=(id)=>{
+    if(!window.confirm('¿Eliminar esta materia y todas sus notas?'))return;
+    const upd=edu.filter(s=>s.id!==id);
+    setData(d=>({...d,education:upd}));
+    const str=JSON.stringify(upd);try{localStorage.setItem('education',str);}catch(e){}try{window.storage?.set('education',str);}catch(e){}
+    if(selSubject?.id===id){setSelSubject(null);setSelNote(null);}
+  };
+  const saveNote=()=>{
+    if(!noteForm.title.trim()||!selSubject)return;
+    const n={id:uid(),...noteForm,tags:noteForm.tags.split(',').map(t=>t.trim()).filter(Boolean),createdAt:today()};
+    const upd=edu.map(s=>s.id===selSubject.id?{...s,notes:[n,...(s.notes||[])]}:s);
+    setData(d=>({...d,education:upd}));
+    const str=JSON.stringify(upd);try{localStorage.setItem('education',str);}catch(e){}try{window.storage?.set('education',str);}catch(e){}
+    setNoteModal(false);setNoteForm({title:'',content:'',tags:'',type:'apunte'});
+    setSelSubject(upd.find(s=>s.id===selSubject.id));
+    setSelNote(n);
+  };
+  const saveEditNote=()=>{
+    if(!editNoteForm.title?.trim())return;
+    const upd=edu.map(s=>s.id===selSubject.id?{...s,notes:(s.notes||[]).map(n=>n.id===editNote?{...n,...editNoteForm,tags:(editNoteForm.tags||'').split(',').map(t=>t.trim()).filter(Boolean)}:n)}:s);
+    setData(d=>({...d,education:upd}));
+    const str=JSON.stringify(upd);try{localStorage.setItem('education',str);}catch(e){}try{window.storage?.set('education',str);}catch(e){}
+    setSelSubject(upd.find(s=>s.id===selSubject.id));
+    setSelNote(upd.find(s=>s.id===selSubject.id)?.notes?.find(n=>n.id===editNote));
+    setEditNote(null);
+  };
+  const delNote=(nid)=>{
+    if(!window.confirm('¿Eliminar esta nota?'))return;
+    const upd=edu.map(s=>s.id===selSubject.id?{...s,notes:(s.notes||[]).filter(n=>n.id!==nid)}:s);
+    setData(d=>({...d,education:upd}));
+    const str=JSON.stringify(upd);try{localStorage.setItem('education',str);}catch(e){}try{window.storage?.set('education',str);}catch(e){}
+    setSelSubject(upd.find(s=>s.id===selSubject.id));
+    if(selNote?.id===nid)setSelNote(null);
+  };
+
+  const totalNotes=edu.reduce((s,sub)=>s+(sub.notes||[]).length,0);
+
+  return (
+    <div>
+      <PageHeader title="Educación" subtitle="Materias, apuntes y tareas escolares." isMobile={isMobile}
+        action={<Btn size="sm" onClick={()=>setModal(true)}><Icon name="plus" size={14}/>Materia</Btn>}/>
+
+      {/* Stats */}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:20}}>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22,fontWeight:700,color:T.purple}}>{edu.length}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>Materias</div>
+        </Card>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22,fontWeight:700,color:T.blue}}>{totalNotes}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>Notas totales</div>
+        </Card>
+        <Card style={{textAlign:'center',padding:14}}>
+          <div style={{fontSize:22,fontWeight:700,color:T.orange}}>{edu.reduce((s,sub)=>(s+(sub.notes||[]).filter(n=>n.type==='tarea').length),0)}</div>
+          <div style={{fontSize:11,color:T.muted,marginTop:2}}>Tareas</div>
+        </Card>
+      </div>
+
+      <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr':selSubject?'220px 1fr':'1fr',gap:16}}>
+        {/* Subject list */}
+        <div>
+          {edu.length===0&&<div style={{textAlign:'center',padding:'40px 0',color:T.dim}}><Icon name="graduation" size={40}/><p style={{marginBottom:12}}>Sin materias aún.</p><Btn size="sm" onClick={()=>setModal(true)}><Icon name="plus" size={12}/>Agregar materia</Btn></div>}
+          {edu.map(s=>{
+            const notesCount=(s.notes||[]).length;
+            const tareasCount=(s.notes||[]).filter(n=>n.type==='tarea').length;
+            return <div key={s.id} onClick={()=>{setSelSubject(selSubject?.id===s.id?null:s);setSelNote(null);}}
+              style={{display:'flex',alignItems:'center',gap:12,padding:'12px 14px',background:selSubject?.id===s.id?T.surface2:T.surface,border:`1px solid ${selSubject?.id===s.id?T.accent:T.border}`,borderRadius:10,marginBottom:8,cursor:'pointer',borderLeft:`4px solid ${s.color}`,transition:'all 0.15s'}}>
+              <div style={{fontSize:22,flexShrink:0}}>{s.icon}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{color:T.text,fontWeight:600,fontSize:14}}>{s.name}</div>
+                <div style={{color:T.muted,fontSize:11,marginTop:2}}>{notesCount} notas{tareasCount>0?` · ${tareasCount} tareas`:''}</div>
+              </div>
+              <button onClick={e=>{e.stopPropagation();delSubject(s.id);}} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:4,display:'flex'}}><Icon name="trash" size={13}/></button>
+            </div>;
+          })}
+        </div>
+
+        {/* Notes panel */}
+        {selSubject&&(
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:20}}>{selSubject.icon}</span>
+                <span style={{color:T.text,fontWeight:700,fontSize:16}}>{selSubject.name}</span>
+              </div>
+              <Btn size="sm" onClick={()=>setNoteModal(true)}><Icon name="plus" size={12}/>Nueva nota</Btn>
+            </div>
+
+            {/* Note detail */}
+            {selNote&&(
+              <Card style={{marginBottom:16,borderLeft:`3px solid ${NOTE_TYPES.find(t=>t.id===selNote.type)?.color||T.accent}`}}>
+                {editNote===selNote.id?(
+                  <div style={{display:'flex',flexDirection:'column',gap:10}}>
+                    <Input value={editNoteForm.title||''} onChange={v=>setEditNoteForm(f=>({...f,title:v}))} placeholder="Título"/>
+                    <Select value={editNoteForm.type||'apunte'} onChange={v=>setEditNoteForm(f=>({...f,type:v}))}>
+                      {NOTE_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+                    </Select>
+                    <Textarea value={editNoteForm.content||''} onChange={v=>setEditNoteForm(f=>({...f,content:v}))} rows={5} placeholder="Contenido..."/>
+                    <Input value={editNoteForm.tags||''} onChange={v=>setEditNoteForm(f=>({...f,tags:v}))} placeholder="Tags"/>
+                    <div style={{display:'flex',gap:8}}>
+                      <Btn onClick={saveEditNote} size="sm" style={{flex:1,justifyContent:'center'}}>Guardar</Btn>
+                      <Btn variant="ghost" onClick={()=>setEditNote(null)} size="sm" style={{flex:1,justifyContent:'center'}}>Cancelar</Btn>
+                    </div>
+                  </div>
+                ):(
+                  <>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                      <div>
+                        <div style={{color:T.text,fontWeight:700,fontSize:15}}>{selNote.title}</div>
+                        <div style={{display:'flex',gap:6,marginTop:4,flexWrap:'wrap'}}>
+                          {(()=>{const t=NOTE_TYPES.find(x=>x.id===selNote.type);return t?<Tag text={t.label} color={t.color}/>:null;})()}
+                          {selNote.tags?.map(t=><Tag key={t} text={t}/>)}
+                          <span style={{color:T.dim,fontSize:11,alignSelf:'center'}}>{fmt(selNote.createdAt)}</span>
+                        </div>
+                      </div>
+                      <div style={{display:'flex',gap:4}}>
+                        <button onClick={()=>{setEditNoteForm({title:selNote.title,content:selNote.content||'',tags:(selNote.tags||[]).join(', '),type:selNote.type});setEditNote(selNote.id);}} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit'}}>✏️</button>
+                        <button onClick={()=>delNote(selNote.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',padding:4,display:'flex'}}><Icon name="trash" size={14}/></button>
+                      </div>
+                    </div>
+                    {selNote.content&&<p style={{color:T.text,fontSize:14,lineHeight:1.8,margin:0,whiteSpace:'pre-wrap'}}>{selNote.content}</p>}
+                  </>
+                )}
+              </Card>
+            )}
+
+            {/* Notes list */}
+            {(selSubject.notes||[]).length===0&&<div style={{textAlign:'center',padding:'20px 0',color:T.dim,fontSize:13}}>Sin notas en esta materia.</div>}
+            {(selSubject.notes||[]).map(n=>{
+              const nt=NOTE_TYPES.find(t=>t.id===n.type);
+              return <div key={n.id} onClick={()=>setSelNote(selNote?.id===n.id?null:n)}
+                style={{padding:'10px 14px',background:selNote?.id===n.id?T.surface2:T.surface,border:`1px solid ${selNote?.id===n.id?T.accent:T.border}`,borderRadius:10,marginBottom:8,cursor:'pointer',transition:'all 0.15s',borderLeft:`3px solid ${nt?.color||T.border}`}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                  <div style={{color:T.text,fontSize:13,fontWeight:500}}>{n.title}</div>
+                  <span style={{color:nt?.color||T.muted,fontSize:10,background:`${nt?.color||T.muted}18`,padding:'2px 8px',borderRadius:8,fontWeight:600}}>{nt?.label||n.type}</span>
+                </div>
+                {n.content&&<div style={{color:T.muted,fontSize:12,marginTop:3}}>{n.content.slice(0,60)}{n.content.length>60?'…':''}</div>}
+              </div>;
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Subject modal */}
+      {modal&&(
+        <Modal title="Nueva materia" onClose={()=>setModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <Input value={subjectForm.name} onChange={v=>setSubjectForm(f=>({...f,name:v}))} placeholder="Nombre de la materia"/>
+            <div>
+              <div style={{color:T.muted,fontSize:12,marginBottom:8}}>Icono</div>
+              <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+                {ICONS.map(e=><button key={e} onClick={()=>setSubjectForm(f=>({...f,icon:e}))}
+                  style={{width:38,height:38,borderRadius:9,border:`2px solid ${subjectForm.icon===e?T.accent:T.border}`,background:T.bg,cursor:'pointer',fontSize:18}}>{e}</button>)}
+              </div>
+            </div>
+            <div>
+              <div style={{color:T.muted,fontSize:12,marginBottom:8}}>Color</div>
+              <div style={{display:'flex',gap:8}}>
+                {T.areaColors.map(c=><button key={c} onClick={()=>setSubjectForm(f=>({...f,color:c}))}
+                  style={{width:28,height:28,borderRadius:'50%',background:c,border:`3px solid ${subjectForm.color===c?T.text:'transparent'}`,cursor:'pointer'}}/>)}
+              </div>
+            </div>
+            <Btn onClick={saveSubject} style={{width:'100%',justifyContent:'center'}}>Crear materia</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* Note modal */}
+      {noteModal&&(
+        <Modal title="Nueva nota" onClose={()=>setNoteModal(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:14}}>
+            <Input value={noteForm.title} onChange={v=>setNoteForm(f=>({...f,title:v}))} placeholder="Título de la nota"/>
+            <Select value={noteForm.type} onChange={v=>setNoteForm(f=>({...f,type:v}))}>
+              {NOTE_TYPES.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+            </Select>
+            <Textarea value={noteForm.content} onChange={v=>setNoteForm(f=>({...f,content:v}))} placeholder="Contenido..." rows={5}/>
+            <Input value={noteForm.tags} onChange={v=>setNoteForm(f=>({...f,tags:v}))} placeholder="Tags (separados por coma)"/>
+            <Btn onClick={saveNote} style={{width:'100%',justifyContent:'center'}}>Guardar nota</Btn>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+};
+
 const NAV=[
   {id:'dashboard',label:'Inicio',icon:'home'},
   {id:'areas',label:'Áreas',icon:'grid'},
   {id:'objectives',label:'Objetivos',icon:'target'},
   {id:'projects',label:'Proyectos',icon:'folder'},
   {id:'notes',label:'Notas',icon:'note'},
+  {id:'journal',label:'Journal',icon:'journal'},
+  {id:'books',label:'Libros',icon:'book'},
+  {id:'shopping',label:'Compras',icon:'cart'},
+  {id:'education',label:'Educación',icon:'graduation'},
   {id:'inbox',label:'Inbox',icon:'inbox'},
   {id:'habits',label:'Hábitos',icon:'habit'},
   {id:'settings',label:'Config',icon:'cog'},
@@ -2012,11 +2580,12 @@ export default function App() {
   useEffect(()=>{
     (async()=>{
       const def=initData();
-      const [areas,objectives,projects,tasks,notes,inbox,habits,budget]=await Promise.all([
+      const [areas,objectives,projects,tasks,notes,inbox,habits,budget,journal,books,shopping,education]=await Promise.all([
         load('areas',def.areas),load('objectives',def.objectives),load('projects',def.projects),
         load('tasks',def.tasks),load('notes',def.notes),load('inbox',def.inbox),load('habits',def.habits),load('budget',def.budget),
+        load('journal',def.journal),load('books',def.books),load('shopping',def.shopping),load('education',def.education),
       ]);
-      setData({areas,objectives,projects,tasks,notes,inbox,habits,budget});
+      setData({areas,objectives,projects,tasks,notes,inbox,habits,budget,journal,books,shopping,education});
     })();
   },[]);
 
@@ -2037,6 +2606,10 @@ export default function App() {
     notes:<Notes {...props} viewHint={viewHint} onConsumeHint={()=>setViewHint(null)}/>,
     inbox:<Inbox {...props}/>,
     habits:<HabitTracker {...props}/>,
+    journal:<Journal {...props}/>,
+    books:<Books {...props}/>,
+    shopping:<Shopping {...props}/>,
+    education:<Education {...props}/>,
     settings:<Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile}/>,
   };
   const isMoreActive=MORE_NAV.some(n=>n.id===view);
