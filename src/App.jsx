@@ -1731,6 +1731,7 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
                 </button>
                 <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
                   onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}
+                  autoComplete="off" autoCorrect="off" spellCheck="false"
                   placeholder="Pregunta, idea, decisión..."
                   style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,color:T.text,
                     padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit'}}/>
