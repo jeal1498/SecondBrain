@@ -52,6 +52,12 @@ const Icon = ({ name, size = 18, color }) => {
     back: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>,
     home: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
     menu: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
+    mic: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>,
+    micoff: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><line x1="2" y1="2" x2="22" y2="22"/><rect x="9" y="2" width="6" height="11" rx="3" clipPath="url(#cut)"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><path d="M19 10a7 7 0 0 1-.32 2.09"/><path d="M5 10a7 7 0 0 0 11.95 5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>,
+    image: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+    cog: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+    key: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6"/><path d="M15.5 7.5l3 3L21 8l-3-3"/></svg>,
+    checkCircle: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
   };
   return <span style={{display:'inline-flex',alignItems:'center'}}>{icons[name]||null}</span>;
 };
@@ -686,60 +692,331 @@ const HabitTracker = ({data,setData,isMobile}) => {
 };
 
 // ===================== AI ASSISTANT =====================
-const AIAssistant = ({data,isMobile}) => {
-  const [messages,setMessages]=useState([{role:'assistant',content:'¡Hola! Soy tu asistente IA con acceso completo a tu Segundo Cerebro. Pregúntame lo que quieras: proyectos activos, objetivos pendientes, notas, hábitos... 🧠'}]);
+const GEMINI_MODEL='gemini-1.5-flash';
+const TODAY_DATE=new Date().toISOString().split('T')[0];
+
+const buildSystemPrompt=(ctx)=>`Eres el "Segundo Cerebro" — un asistente de memoria personal brutalmente eficiente, directo, y con humor ácido cuando el usuario es vago.
+
+FECHA HOY: ${TODAY_DATE}
+
+═══ TU DOBLE FUNCIÓN ═══
+1. CONSULTAS: Responde preguntas sobre los datos del usuario (notas, tareas, hábitos, objetivos).
+2. CAPTURA: Cuando el usuario comparte información nueva para recordar, la capturas y estructuras.
+
+═══ DATOS ACTUALES DEL USUARIO ═══
+${ctx}
+
+═══ PROTOCOLO DE CAPTURA ═══
+Cuando detectes información nueva a guardar (gasto, evento, idea, tarea, compra, logro):
+1. Evalúa si tienes: concepto claro, categoría y fecha.
+2. Si falta algo → UNA pregunta directa y ligeramente sarcástica. Máx 2 líneas.
+3. Si tienes todo → confirma con humor y genera el JSON.
+
+PREGUNTAS SARCÁSTICAS EJEMPLO:
+- Sin fecha: "¿Cuándo fue esto? ¿Hoy, o en algún momento difuso del pasado?"
+- Sin categoría: "¿Esto va en Finanzas, Trabajo, Personal... o en la categoría 'misterio'?"
+- Concepto vago: "Fascinante. ¿Podrías ser un 10% más específico?"
+
+═══ FORMATO DE GUARDADO (solo cuando tengas todo) ═══
+Una línea de confirmación ingeniosa, luego INMEDIATAMENTE:
+
+\`\`\`json
+{
+  "action": "SAVE_NOTE",
+  "data": {
+    "title": "Título conciso (máx 60 chars)",
+    "content": "Descripción completa con contexto relevante",
+    "tags": ["tag1", "tag2"],
+    "category": "Finanzas|Salud|Trabajo|Personal|Compras|Viajes|Ideas|Otro",
+    "cost": null,
+    "currency": null,
+    "importance": 3
+  }
+}
+\`\`\`
+
+═══ REGLAS ═══
+- NUNCA generes JSON sin tener título, contenido y categoría.
+- Importance: 5=crítico, 4=importante, 3=normal, 2=menor, 1=trivial.
+- Responde SIEMPRE en español. Sé conciso.
+- Para consultas sobre datos existentes, responde directamente sin JSON.`;
+
+const parseNote=(text)=>{
+  const m=text.match(/```json\s*([\s\S]*?)\s*```/);
+  if(!m)return null;
+  try{const p=JSON.parse(m[1]);if(p.action==='SAVE_NOTE'&&p.data)return p.data;}catch(e){}
+  return null;
+};
+const stripJson=(text)=>text.replace(/```json[\s\S]*?```/g,'').trim();
+
+const AIAssistant = ({data,setData,isMobile,apiKey,onGoSettings}) => {
+  const [messages,setMessages]=useState([{role:'assistant',content:'¡Listo! Soy tu Segundo Cerebro con IA. Puedo responder preguntas sobre tus datos o guardar información nueva. Habla, dicta o sube una imagen. 🧠'}]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
+  const [recording,setRecording]=useState(false);
   const bottomRef=useRef(null);
+  const recRef=useRef(null);
+  const fileRef=useRef(null);
+
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[messages]);
 
-  const buildContext=useCallback(()=>JSON.stringify({
-    areas:data.areas.map(a=>({name:a.name,icon:a.icon})),
-    objectives:data.objectives.map(o=>({title:o.title,status:o.status,deadline:o.deadline,area:data.areas.find(a=>a.id===o.areaId)?.name||'Sin área'})),
-    projects:data.projects.map(p=>({title:p.title,objective:data.objectives.find(o=>o.id===p.objectiveId)?.title||'Sin objetivo'})),
-    tasks:data.tasks.map(t=>({title:t.title,status:t.status,priority:t.priority,project:data.projects.find(p=>p.id===t.projectId)?.title||'Sin proyecto'})),
-    notes:data.notes.map(n=>({title:n.title,content:n.content,tags:n.tags})),
-    inbox:data.inbox.filter(i=>!i.processed).map(i=>({content:i.content})),
-    habits:data.habits.map(h=>({name:h.name,streak:(()=>{let s=0,d=new Date();while(h.completions.includes(d.toISOString().split('T')[0])){s++;d.setDate(d.getDate()-1);}return s;})()})),
+  const buildCtx=useCallback(()=>JSON.stringify({
+    areas:data.areas.map(a=>({name:a.name})),
+    objectives:data.objectives.filter(o=>o.status==='active').map(o=>({title:o.title,deadline:o.deadline})),
+    projects:data.projects.map(p=>({title:p.title,status:p.status})),
+    tasks:data.tasks.filter(t=>t.status!=='done').slice(0,10).map(t=>({title:t.title,priority:t.priority})),
+    notes:data.notes.slice(0,20).map(n=>({title:n.title,tags:n.tags,date:n.createdAt})),
+    inbox:data.inbox.filter(i=>!i.processed).slice(0,5).map(i=>({content:i.content})),
+    habits:data.habits.map(h=>{let s=0,d=new Date();while(h.completions.includes(d.toISOString().split('T')[0])){s++;d.setDate(d.getDate()-1);}return{name:h.name,streak:s};}),
   },null,2),[data]);
 
-  const send=async()=>{
-    if(!input.trim()||loading)return;
-    const userMsg={role:'user',content:input};
-    setMessages(m=>[...m,userMsg]);setInput('');setLoading(true);
+  const callGemini=async(history,imageB64=null)=>{
+    const contents=history.map((m,i)=>{
+      const parts=[];
+      if(m.image&&i===history.length-1)parts.push({inlineData:{mimeType:'image/jpeg',data:m.image}});
+      parts.push({text:m.content||' '});
+      return{role:m.role==='assistant'?'model':'user',parts};
+    });
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        system_instruction:{parts:[{text:buildSystemPrompt(buildCtx())}]},
+        contents,
+        generationConfig:{temperature:0.75,maxOutputTokens:1024},
+      })
+    });
+    const d=await res.json();
+    if(d.error)throw new Error(d.error.message);
+    return d.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta.';
+  };
+
+  const send=async(textOverride=null,imageB64=null)=>{
+    const text=(textOverride??input).trim();
+    if(!text&&!imageB64)return;
+    if(!apiKey){onGoSettings();return;}
+    const userMsg={role:'user',content:text||'Analiza esta imagen',image:imageB64,ts:Date.now()};
+    const next=[...messages,userMsg];
+    setMessages(next);setInput('');setLoading(true);
     try{
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
-          system:`Eres el asistente IA del Segundo Cerebro del usuario. Responde de forma concisa y útil en español.\n\nDATOS:\n${buildContext()}`,
-          messages:[...messages,userMsg].map(m=>({role:m.role,content:m.content}))})
-      });
-      const d=await res.json();
-      setMessages(m=>[...m,{role:'assistant',content:d.content?.[0]?.text||'Sin respuesta'}]);
-    }catch(e){setMessages(m=>[...m,{role:'assistant',content:'Error al conectar con la IA.'}]);}
+      const raw=await callGemini(next,imageB64);
+      const noteData=parseNote(raw);
+      const display=stripJson(raw);
+      let savedId=null;
+      if(noteData){
+        const n={id:uid(),title:noteData.title,content:`${noteData.content}${noteData.cost?`\n💰 ${noteData.currency||'$'}${noteData.cost}`:''}`,
+          tags:[...(noteData.tags||[]),noteData.category?.toLowerCase()||'ia'].filter(Boolean),
+          areaId:'',createdAt:TODAY_DATE,_importance:noteData.importance,_savedByAI:true};
+        savedId=n.id;
+        const updN=[n,...data.notes];
+        setData(d=>({...d,notes:updN}));
+        await save('notes',updN);
+      }
+      setMessages(p=>[...p,{role:'assistant',content:display,savedNote:savedId,ts:Date.now()}]);
+    }catch(e){
+      setMessages(p=>[...p,{role:'assistant',content:`⚠️ Error: ${e.message}`,isErr:true,ts:Date.now()}]);
+    }
     setLoading(false);
   };
 
+  const toggleMic=()=>{
+    if(recording){recRef.current?.stop();setRecording(false);return;}
+    const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(!SR){alert('Tu navegador no soporta reconocimiento de voz');return;}
+    const r=new SR();r.lang='es-MX';r.continuous=false;r.interimResults=false;
+    r.onresult=e=>{setInput(e.results[0][0].transcript);setRecording(false);};
+    r.onerror=r.onend=()=>setRecording(false);
+    recRef.current=r;r.start();setRecording(true);
+  };
+
+  const handleImage=e=>{
+    const f=e.target.files[0];if(!f)return;e.target.value='';
+    const reader=new FileReader();
+    reader.onload=ev=>{const b64=ev.target.result.split(',')[1];send('Analiza esta imagen y extrae toda la información relevante para guardar en mi Segundo Cerebro.',b64);};
+    reader.readAsDataURL(f);
+  };
+
+  const savedNote=(id)=>data.notes.find(n=>n.id===id);
+
+  if(!apiKey) return (
+    <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:isMobile?'calc(100vh - 200px)':'calc(100vh - 200px)',gap:16,textAlign:'center',padding:24}}>
+      <div style={{width:60,height:60,background:`${T.accent}22`,borderRadius:16,display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <Icon name="key" size={28} color={T.accent}/>
+      </div>
+      <div>
+        <h3 style={{color:T.text,margin:'0 0 8px',fontSize:18}}>Configura tu API Key</h3>
+        <p style={{color:T.muted,margin:0,fontSize:14,lineHeight:1.6,maxWidth:280}}>Necesitas una API Key de Google Gemini para activar el asistente IA.</p>
+      </div>
+      <Btn onClick={onGoSettings}><Icon name="cog" size={16}/>Ir a Configuración</Btn>
+      <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:T.blue,fontSize:13}}>Obtener API Key gratis →</a>
+    </div>
+  );
+
   return (
     <div style={{display:'flex',flexDirection:'column',height:isMobile?'calc(100vh - 160px)':'calc(100vh - 120px)'}}>
-      <PageHeader title="IA — Asistente personal" subtitle="Consulta tu Segundo Cerebro en lenguaje natural" isMobile={isMobile}/>
+      <PageHeader title="IA — Segundo Cerebro" subtitle="Consulta datos o dicta información para guardar" isMobile={isMobile}/>
+
+      {/* Messages */}
       <div style={{flex:1,overflowY:'auto',marginBottom:12,display:'flex',flexDirection:'column',gap:10}}>
-        {messages.map((m,i)=>(
-          <div key={i} style={{display:'flex',justifyContent:m.role==='user'?'flex-end':'flex-start'}}>
-            <div style={{maxWidth:'85%',padding:'10px 14px',borderRadius:14,background:m.role==='user'?T.accent:T.surface,color:m.role==='user'?'#000':T.text,fontSize:14,lineHeight:1.6,
-              borderBottomRightRadius:m.role==='user'?2:14,borderBottomLeftRadius:m.role==='assistant'?2:14}}>
-              {m.content}
+        {messages.map((m,i)=>{
+          const note=m.savedNote?savedNote(m.savedNote):null;
+          const isUser=m.role==='user';
+          return (
+            <div key={i}>
+              <div style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}}>
+                {m.image&&<div style={{maxWidth:200,marginBottom:6,marginLeft:isUser?'auto':0,borderRadius:10,overflow:'hidden',display:'block'}}>
+                  <img src={`data:image/jpeg;base64,${m.image}`} alt="" style={{width:'100%',display:'block'}}/>
+                </div>}
+              </div>
+              {m.content&&<div style={{display:'flex',justifyContent:isUser?'flex-end':'flex-start'}}>
+                <div style={{maxWidth:'85%',padding:'10px 14px',borderRadius:14,lineHeight:1.6,fontSize:14,whiteSpace:'pre-wrap',
+                  background:isUser?T.accent:m.isErr?'rgba(248,81,73,0.15)':T.surface,
+                  color:isUser?'#000':m.isErr?T.red:T.text,
+                  borderBottomRightRadius:isUser?2:14,borderBottomLeftRadius:!isUser?2:14,
+                  border:!isUser?`1px solid ${T.border}`:'none'}}>
+                  {!isUser&&<span style={{color:T.accent,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Cerebro IA</span>}
+                  {m.content}
+                </div>
+              </div>}
+              {note&&<div style={{display:'flex',justifyContent:'flex-start',marginTop:6}}>
+                <div style={{maxWidth:'85%',padding:'10px 14px',borderRadius:12,background:`${T.green}12`,border:`1px solid ${T.green}30`,display:'flex',alignItems:'center',gap:10}}>
+                  <Icon name="checkCircle" size={16} color={T.green}/>
+                  <div>
+                    <div style={{color:T.green,fontSize:12,fontWeight:600}}>Guardado en Notas</div>
+                    <div style={{color:T.muted,fontSize:12,marginTop:1}}>{note.title}</div>
+                  </div>
+                </div>
+              </div>}
             </div>
+          );
+        })}
+        {loading&&<div style={{display:'flex',justifyContent:'flex-start'}}>
+          <div style={{padding:'10px 16px',borderRadius:14,background:T.surface,border:`1px solid ${T.border}`,color:T.muted,fontSize:14}}>
+            <span style={{color:T.accent,fontSize:10,fontWeight:700,textTransform:'uppercase',letterSpacing:1,display:'block',marginBottom:4}}>Cerebro IA</span>
+            Procesando{[0,1,2].map(i=><span key={i} style={{display:'inline-block',animation:`bounce 1s ${i*0.2}s infinite`}}>.</span>)}
           </div>
-        ))}
-        {loading&&<div style={{display:'flex',justifyContent:'flex-start'}}><div style={{padding:'10px 16px',borderRadius:14,background:T.surface,color:T.muted,fontSize:14}}>Pensando{[0,1,2].map(i=><span key={i} style={{display:'inline-block',animation:`bounce 1s ${i*0.2}s infinite`}}>.</span>)}</div></div>}
+        </div>}
         <div ref={bottomRef}/>
       </div>
-      <div style={{display:'flex',gap:10}}>
-        <Input value={input} onChange={setInput} placeholder="Pregunta sobre tu Segundo Cerebro..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}/>
-        <button onClick={send} disabled={loading} style={{background:T.accent,border:'none',borderRadius:10,padding:'0 16px',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}><Icon name="send" size={18} color="#000"/></button>
+
+      {/* Mic row */}
+      <div style={{display:'flex',justifyContent:'center',marginBottom:10}}>
+        <button onClick={toggleMic} style={{
+          width:56,height:56,borderRadius:'50%',border:`2px solid ${recording?T.red:T.border}`,
+          background:recording?`${T.red}22`:'transparent',cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',
+          color:recording?T.red:T.muted,transition:'all 0.2s',animation:recording?'pulse 1.5s infinite':'none'
+        }}>
+          <Icon name={recording?'micoff':'mic'} size={22} color={recording?T.red:undefined}/>
+        </button>
       </div>
-      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}`}</style>
+      {recording&&<div style={{textAlign:'center',color:T.red,fontSize:12,marginBottom:8,fontWeight:500}}>● Escuchando...</div>}
+
+      {/* Text input row */}
+      <div style={{display:'flex',gap:8}}>
+        <button onClick={()=>fileRef.current?.click()} style={{
+          width:42,height:42,borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',
+          cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',color:T.muted,flexShrink:0
+        }}>
+          <Icon name="image" size={18}/>
+        </button>
+        <Input value={input} onChange={setInput} placeholder="Escribe o dicta para guardar..." style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}/>
+        <button onClick={()=>send()} disabled={!input.trim()||loading} style={{
+          width:42,height:42,borderRadius:10,border:'none',
+          background:input.trim()&&!loading?T.accent:'transparent',
+          cursor:input.trim()&&!loading?'pointer':'not-allowed',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,
+          border:input.trim()&&!loading?'none':`1px solid ${T.border}`
+        }}>
+          <Icon name="send" size={18} color={input.trim()&&!loading?'#000':T.dim}/>
+        </button>
+      </div>
+      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}} onChange={handleImage}/>
+      <style>{`@keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,0.4)}50%{box-shadow:0 0 0 8px rgba(248,81,73,0)}}`}</style>
+    </div>
+  );
+};
+
+// ===================== SETTINGS =====================
+const Settings = ({apiKey,setApiKey,isMobile}) => {
+  const [val,setVal]=useState(apiKey);
+  const [show,setShow]=useState(false);
+  const [saved,setSaved]=useState(false);
+
+  const handleSave=()=>{
+    const k=val.trim();
+    localStorage.setItem('sb_gemini_key',k);
+    setApiKey(k);
+    setSaved(true);
+    setTimeout(()=>setSaved(false),2500);
+  };
+  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_gemini_key');};
+
+  return (
+    <div style={{maxWidth:480}}>
+      <PageHeader title="Configuración" subtitle="Ajustes del asistente IA" isMobile={isMobile}/>
+      <Card style={{marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:16}}>
+          <div style={{width:40,height:40,background:`${T.accent}22`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+            <Icon name="key" size={20} color={T.accent}/>
+          </div>
+          <div>
+            <div style={{color:T.text,fontWeight:600,fontSize:15}}>Google Gemini API Key</div>
+            <div style={{color:T.muted,fontSize:12,marginTop:2}}>Necesaria para el asistente IA</div>
+          </div>
+          <div style={{marginLeft:'auto',width:10,height:10,borderRadius:'50%',background:apiKey?T.green:T.red,flexShrink:0}}/>
+        </div>
+
+        <div style={{position:'relative',marginBottom:12}}>
+          <input
+            type={show?'text':'password'}
+            value={val}
+            onChange={e=>setVal(e.target.value)}
+            placeholder="AIza..."
+            style={{width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'10px 44px 10px 14px',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:'monospace'}}
+          />
+          <button onClick={()=>setShow(s=>!s)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
+            {show?'Ocultar':'Ver'}
+          </button>
+        </div>
+
+        <div style={{display:'flex',gap:10}}>
+          <Btn onClick={handleSave} style={{flex:1,justifyContent:'center'}}>
+            {saved?<><Icon name="checkCircle" size={15}/>Guardada</>:<><Icon name="key" size={15}/>Guardar Key</>}
+          </Btn>
+          {apiKey&&<Btn variant="danger" onClick={handleClear} size="md" style={{flexShrink:0}}>Limpiar</Btn>}
+        </div>
+      </Card>
+
+      <Card>
+        <div style={{color:T.muted,fontSize:13,lineHeight:1.7}}>
+          <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>¿Cómo obtener la API Key?</div>
+          <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:6}}>
+            <li>Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:T.blue}}>aistudio.google.com</a></li>
+            <li>Inicia sesión con tu cuenta de Google</li>
+            <li>Haz clic en "Create API Key"</li>
+            <li>Copia la clave y pégala arriba</li>
+          </ol>
+          <div style={{marginTop:12,padding:'10px 14px',background:`${T.green}12`,borderRadius:8,border:`1px solid ${T.green}30`,color:T.green,fontSize:12}}>
+            ✓ El plan gratuito de Gemini es suficiente para uso personal intensivo.
+          </div>
+        </div>
+      </Card>
+
+      <Card style={{marginTop:16}}>
+        <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>Acerca del Asistente</div>
+        <div style={{display:'flex',flexDirection:'column',gap:8}}>
+          {[
+            {icon:'brain',label:'Modelo',val:`Google ${GEMINI_MODEL}`},
+            {icon:'note',label:'Auto-guardado',val:'Notas + etiquetas'},
+            {icon:'mic',label:'Voz',val:'Web Speech API (español)'},
+            {icon:'image',label:'Imágenes',val:'OCR visual con Gemini'},
+          ].map(({icon,label,val})=>(
+            <div key={label} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
+              <Icon name={icon} size={15} color={T.muted}/>
+              <span style={{color:T.muted,fontSize:13,flex:1}}>{label}</span>
+              <span style={{color:T.text,fontSize:13}}>{val}</span>
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 };
@@ -754,6 +1031,7 @@ const NAV=[
   {id:'inbox',label:'Inbox',icon:'inbox'},
   {id:'habits',label:'Hábitos',icon:'habit'},
   {id:'ai',label:'IA',icon:'ai'},
+  {id:'settings',label:'Config',icon:'cog'},
 ];
 const MOBILE_NAV=NAV.slice(0,5);
 const MORE_NAV=NAV.slice(5);
@@ -763,6 +1041,7 @@ export default function App() {
   const [view,setView]=useState('dashboard');
   const [data,setData]=useState(null);
   const [showMore,setShowMore]=useState(false);
+  const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
   const isMobile=useIsMobile();
 
   useEffect(()=>{
@@ -785,7 +1064,17 @@ export default function App() {
 
   const inboxCount=data.inbox.filter(i=>!i.processed).length;
   const props={data,setData,isMobile};
-  const views={dashboard:<Dashboard {...props}/>,areas:<Areas {...props}/>,objectives:<Objectives {...props}/>,projects:<ProjectsAndTasks {...props}/>,notes:<Notes {...props}/>,inbox:<Inbox {...props}/>,habits:<HabitTracker {...props}/>,ai:<AIAssistant {...props}/>};
+  const views={
+    dashboard:<Dashboard {...props}/>,
+    areas:<Areas {...props}/>,
+    objectives:<Objectives {...props}/>,
+    projects:<ProjectsAndTasks {...props}/>,
+    notes:<Notes {...props}/>,
+    inbox:<Inbox {...props}/>,
+    habits:<HabitTracker {...props}/>,
+    ai:<AIAssistant {...props} apiKey={apiKey} onGoSettings={()=>setView('settings')}/>,
+    settings:<Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile}/>,
+  };
   const isMoreActive=MORE_NAV.some(n=>n.id===view);
 
   return (
@@ -829,7 +1118,13 @@ export default function App() {
               );
             })}
           </nav>
-          <div style={{padding:'12px 16px',borderTop:`1px solid ${T.border}`,fontSize:11,color:T.dim,textAlign:'center'}}>Método Tiago Forte</div>
+          <div style={{padding:'12px 16px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
+            <div style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={()=>setView('settings')}>
+              <span style={{width:7,height:7,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block',flexShrink:0}}/>
+              <span style={{fontSize:11,color:apiKey?T.green:T.red,fontWeight:600}}>{apiKey?'Gemini activo':'Sin API Key'}</span>
+            </div>
+            <div style={{fontSize:10,color:T.dim,textAlign:'center'}}>Método Tiago Forte</div>
+          </div>
         </div>
       )}
 
@@ -845,6 +1140,10 @@ export default function App() {
             </span>
           </div>
           {inboxCount>0&&<span style={{background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12}}>{inboxCount} inbox</span>}
+          <button onClick={()=>setView('settings')} style={{background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+            <span style={{width:6,height:6,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block'}}/>
+            {apiKey?'IA ON':'IA OFF'}
+          </button>
         </div>
       )}
 
