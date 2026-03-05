@@ -1047,8 +1047,8 @@ const HabitTracker = ({data,setData,isMobile}) => {
   );
 };
 
-// ===================== CLAUDE CONFIG =====================
-const CLAUDE_MODEL='claude-haiku-4-5-20251001';
+// ===================== GEMINI CONFIG =====================
+const GEMINI_MODEL='gemini-2.5-flash-lite';
 
 
 // ===================== SETTINGS =====================
@@ -1059,12 +1059,12 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
 
   const handleSave=()=>{
     const k=val.trim();
-    localStorage.setItem('sb_claude_key',k);
+    localStorage.setItem('sb_gemini_key',k);
     setApiKey(k);
     setSaved(true);
     setTimeout(()=>setSaved(false),2500);
   };
-  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_claude_key');};
+  const handleClear=()=>{setVal('');setApiKey('');localStorage.removeItem('sb_gemini_key');};
 
   return (
     <div style={{maxWidth:480}}>
@@ -1075,7 +1075,7 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
             <Icon name="key" size={20} color={T.accent}/>
           </div>
           <div>
-            <div style={{color:T.text,fontWeight:600,fontSize:15}}>Anthropic Claude API Key</div>
+            <div style={{color:T.text,fontWeight:600,fontSize:15}}>Google Gemini API Key</div>
             <div style={{color:T.muted,fontSize:12,marginTop:2}}>Necesaria para el asistente IA</div>
           </div>
           <div style={{marginLeft:'auto',width:10,height:10,borderRadius:'50%',background:apiKey?T.green:T.red,flexShrink:0}}/>
@@ -1086,7 +1086,7 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
             type={show?'text':'password'}
             value={val}
             onChange={e=>setVal(e.target.value)}
-            placeholder="sk-ant-..."
+            placeholder="AIza..."
             style={{width:'100%',background:T.bg,border:`1px solid ${T.border}`,color:T.text,padding:'10px 44px 10px 14px',borderRadius:10,fontSize:14,outline:'none',boxSizing:'border-box',fontFamily:'monospace'}}
           />
           <button onClick={()=>setShow(s=>!s)} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>
@@ -1106,13 +1106,13 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
         <div style={{color:T.muted,fontSize:13,lineHeight:1.7}}>
           <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>¿Cómo obtener la API Key?</div>
           <ol style={{margin:0,paddingLeft:18,display:'flex',flexDirection:'column',gap:6}}>
-            <li>Ve a <a href="https://console.anthropic.com" target="_blank" rel="noreferrer" style={{color:T.blue}}>console.anthropic.com</a></li>
-            <li>Crea una cuenta o inicia sesión</li>
-            <li>Ve a "API Keys" y haz clic en "Create Key"</li>
-            <li>Copia la clave (empieza con <code style={{color:T.accent}}>sk-ant-</code>) y pégala arriba</li>
+            <li>Ve a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{color:T.blue}}>aistudio.google.com</a></li>
+            <li>Inicia sesión con tu cuenta de Google</li>
+            <li>Haz clic en "Create API Key"</li>
+            <li>Copia la clave y pégala arriba</li>
           </ol>
           <div style={{marginTop:12,padding:'10px 14px',background:`${T.green}12`,borderRadius:8,border:`1px solid ${T.green}30`,color:T.green,fontSize:12}}>
-            ✓ Las cuentas nuevas reciben $5 USD de crédito gratis. Claude Haiku cuesta ~$0.001 por conversación.
+            ✓ El plan gratuito de Gemini es suficiente para uso personal intensivo.
           </div>
         </div>
       </Card>
@@ -1121,10 +1121,10 @@ const Settings = ({apiKey,setApiKey,isMobile}) => {
         <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:10}}>Acerca del Asistente</div>
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {[
-            {icon:'brain',label:'Modelo',val:'Anthropic Claude Haiku'},
+            {icon:'brain',label:'Modelo',val:'Google gemini-2.5-flash-lite'},
             {icon:'note',label:'Auto-guardado',val:'Notas + etiquetas'},
             {icon:'mic',label:'Voz',val:'Web Speech API (español)'},
-            {icon:'image',label:'Imágenes',val:'OCR visual con Claude'},
+            {icon:'image',label:'Imágenes',val:'OCR visual con Gemini'},
           ].map(({icon,label,val})=>(
             <div key={label} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:`1px solid ${T.border}`}}>
               <Icon name={icon} size={15} color={T.muted}/>
@@ -1403,11 +1403,45 @@ const parsePsickeAction=(text)=>{
   return null;
 };
 const stripPsickeJson=(text)=>{
-  // Claude reliably wraps reasoning in <pensamiento>...</pensamiento> — strip it
-  return text
-    .replace(/<pensamiento>[\s\S]*?<\/pensamiento>/gi,'')
-    .replace(/\`\`\`json[\s\S]*?\`\`\`/g,'')
-    .trim();
+  // 1. Strip <pensamiento> blocks (ideal case when Gemini follows instructions)
+  let out=text.replace(/<pensamiento>[\s\S]*?<\/pensamiento>/gi,'');
+
+  // 2. Fallback: Gemini sometimes writes reasoning as plain text using PASO/ETAPA labels.
+  //    Detect the pattern and keep only what comes after the last reasoning label block.
+  //    Strategy: find the last occurrence of a reasoning marker line, discard everything before it.
+  const reasoningMarkers=[
+    /^PASO\s+[IVX\d]+\s*[—\-]/m,
+    /^ETAPA\s+[A-D]\s*[—\-]/m,
+    /^TIPO DE ENTRADA:/m,
+    /^NIVEL JERÁRQUICO:/m,
+    /^ÁRBOL DE DECISIÓN:/m,
+  ];
+  // Find the last line that looks like a reasoning header
+  const lines=out.split('\n');
+  let lastReasoningLine=-1;
+  lines.forEach((line,i)=>{
+    if(reasoningMarkers.some(r=>r.test(line))) lastReasoningLine=i;
+  });
+  if(lastReasoningLine>=0){
+    // Find the next non-empty line after the block that doesn't start with a reasoning pattern
+    let cutAt=-1;
+    for(let i=lastReasoningLine+1;i<lines.length;i++){
+      const l=lines[i].trim();
+      if(!l) continue;
+      // If this line itself looks like reasoning, skip it and its content
+      if(reasoningMarkers.some(r=>r.test(l))) continue;
+      // Check it's not a sub-item of reasoning (starts with arrow, dash+space reasoning keyword)
+      if(/^[→\-]\s*(PASO|ETAPA|Nivel:|Acción:|SÍ|NO\s)/.test(l)) continue;
+      cutAt=i;
+      break;
+    }
+    if(cutAt>=0) out=lines.slice(cutAt).join('\n');
+  }
+
+  // 3. Strip JSON blocks
+  out=out.replace(/\`\`\`json[\s\S]*?\`\`\`/g,'');
+
+  return out.trim();
 };
 
 const Psicke=({apiKey,onGoSettings,data,setData})=>{
@@ -1462,62 +1496,48 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
     saveMsgs(next);setInput('');setLoading(true);
     try{
       const sysPrompt=buildPsickePrompt(data);
-      // Build Anthropic message history — strip save labels, keep last 8 msgs
-      // Must alternate user/assistant and start with user
-      const historyRaw=next.slice(-8).map(m=>({
-        role:m.role==='assistant'?'assistant':'user',
-        content:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '
+      // Clean conversation for API: strip save labels, keep last 8 msgs
+      const cleanMsgs=next.slice(-8).map(m=>({
+        role:m.role==='assistant'?'model':'user',
+        parts:[{text:(m.content||'').replace(/\n\n✅[^\n]*/g,'').trim()||' '}]
       }));
-      // Ensure alternating roles (Anthropic requirement)
-      const cleanMsgs=[];
-      for(const m of historyRaw){
-        if(cleanMsgs.length&&cleanMsgs[cleanMsgs.length-1].role===m.role){
-          cleanMsgs[cleanMsgs.length-1].content+='\n'+m.content;
-        } else {
-          cleanMsgs.push({...m});
-        }
-      }
-      // Must start with user role
-      if(cleanMsgs.length&&cleanMsgs[0].role==='assistant') cleanMsgs.shift();
-
       const body={
-        model:CLAUDE_MODEL,
-        max_tokens:1400,
-        system:sysPrompt,
-        messages:cleanMsgs,
+        contents:[
+          {role:'user',parts:[{text:`[SISTEMA]\n${sysPrompt}\n\n[Confirma tu rol brevemente]`}]},
+          {role:'model',parts:[{text:'Aquí Psicke. ¿En qué está pensando?'}]},
+          ...cleanMsgs
+        ],
+        generationConfig:{temperature:0.8,maxOutputTokens:1400},
       };
 
-      // API call with one retry on 529/529 overload
+      // API call with one retry on 429
       const callApi=async(attempt=0)=>{
-        const res=await fetch('https://api.anthropic.com/v1/messages',{
-          method:'POST',
-          headers:{
-            'Content-Type':'application/json',
-            'x-api-key':key,
-            'anthropic-version':'2023-06-01',
-            'anthropic-dangerous-direct-browser-access':'true',
-          },
-          body:JSON.stringify(body)
-        });
-        if((res.status===529||res.status===503)&&attempt===0){
+        const res=await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+          {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+        );
+        if(res.status===429&&attempt===0){
           await new Promise(r=>setTimeout(r,3000));
           return callApi(1);
         }
         if(!res.ok){
           const err=await res.json().catch(()=>({}));
           const emsg=err?.error?.message||`HTTP ${res.status}`;
-          if(res.status===429) throw new Error('Límite de rate alcanzado. Espere unos segundos e intente de nuevo.');
+          if(res.status===429||emsg.toLowerCase().includes('quota'))
+            throw new Error('Cuota agotada. Espere unos segundos e intente de nuevo.');
           throw new Error(emsg);
         }
         return res.json();
       };
 
       const d=await callApi();
-      if(!d.content?.[0]?.text){
-        const reason=d.stop_reason||'desconocido';
+      const candidate=d.candidates?.[0];
+      if(!candidate?.content?.parts?.[0]?.text){
+        const reason=candidate?.finishReason||d.promptFeedback?.blockReason||'desconocido';
+        if(reason==='SAFETY')throw new Error('Respuesta bloqueada por filtros de seguridad. Intente reformular.');
         throw new Error(`Sin respuesta (${reason})`);
       }
-      const raw=d.content[0].text;
+      const raw=candidate.content.parts[0].text;
 
       // Parse and execute save action if present
       const action=parsePsickeAction(raw);
@@ -1768,7 +1788,7 @@ export default function App() {
   const [viewHint,setViewHint]=useState(null);
   const [data,setData]=useState(null);
   const [showMore,setShowMore]=useState(false);
-  const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_claude_key')||'');
+  const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
   const isMobile=useIsMobile();
 
   // Smart navigate: sets view + optional hint for target component
@@ -1854,7 +1874,7 @@ export default function App() {
           <div style={{padding:'12px 16px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
             <div style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={()=>navTo('settings')}>
               <span style={{width:7,height:7,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block',flexShrink:0}}/>
-              <span style={{fontSize:11,color:apiKey?T.green:T.red,fontWeight:600}}>{apiKey?'Claude activo':'Sin API Key'}</span>
+              <span style={{fontSize:11,color:apiKey?T.green:T.red,fontWeight:600}}>{apiKey?'Gemini activo':'Sin API Key'}</span>
             </div>
             <div style={{fontSize:10,color:T.dim,textAlign:'center'}}>Método Tiago Forte</div>
           </div>
