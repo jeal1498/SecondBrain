@@ -779,7 +779,7 @@ const AIAssistant = ({data,setData,isMobile,apiKey,onGoSettings}) => {
       parts.push({text:m.content||' '});
       return{role:m.role==='assistant'?'model':'user',parts};
     })];
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         contents,
@@ -1076,7 +1076,7 @@ const Psicke=({apiKey,onGoSettings})=>{
         {role:'model',parts:[{text:'Entendido. Soy Psicke — directa, concisa y siempre aquí. ¿En qué te puedo ayudar?'}]},
         ...next.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
       ];
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
+      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({
           contents,
@@ -1244,7 +1244,6 @@ const NAV=[
   {id:'notes',label:'Notas',icon:'note'},
   {id:'inbox',label:'Inbox',icon:'inbox'},
   {id:'habits',label:'Hábitos',icon:'habit'},
-  {id:'ai',label:'IA',icon:'ai'},
   {id:'settings',label:'Config',icon:'cog'},
 ];
 const MOBILE_NAV=NAV.slice(0,5);
@@ -1252,7 +1251,7 @@ const MORE_NAV=NAV.slice(5);
 
 // ===================== MAIN APP =====================
 export default function App() {
-  const [view,setView]=useState('ai');
+  const [view,setView]=useState('dashboard');
   const [data,setData]=useState(null);
   const [showMore,setShowMore]=useState(false);
   const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
@@ -1286,7 +1285,6 @@ export default function App() {
     notes:<Notes {...props}/>,
     inbox:<Inbox {...props}/>,
     habits:<HabitTracker {...props}/>,
-    ai:<AIAssistant {...props} apiKey={apiKey} onGoSettings={()=>setView('settings')}/>,
     settings:<Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile}/>,
   };
   const isMoreActive=MORE_NAV.some(n=>n.id===view);
