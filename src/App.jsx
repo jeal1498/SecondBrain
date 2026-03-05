@@ -771,6 +771,7 @@ const AIAssistant = ({data,setData,isMobile,apiKey,onGoSettings}) => {
   },null,2),[data]);
 
   const callGemini=async(history,imageB64=null)=>{
+    const key=(apiKey||'').trim().replace(/\s+/g,'');
     const sysEntry={role:'user',parts:[{text:`[INSTRUCCIONES DEL SISTEMA]\n${buildSystemPrompt(buildCtx())}\n\n[Confirma rol brevemente]`}]};
     const sysReply={role:'model',parts:[{text:'Entendido. Soy tu Segundo Cerebro: capturo, estructuro y recuerdo. Adelante.'}]};
     const contents=[sysEntry,sysReply,...history.map((m,i)=>{
@@ -779,13 +780,14 @@ const AIAssistant = ({data,setData,isMobile,apiKey,onGoSettings}) => {
       parts.push({text:m.content||' '});
       return{role:m.role==='assistant'?'model':'user',parts};
     })];
-    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,{
+    const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        contents,
-        generationConfig:{temperature:0.75,maxOutputTokens:1024},
-      })
+      body:JSON.stringify({contents,generationConfig:{temperature:0.75,maxOutputTokens:1024}})
     });
+    if(!res.ok){
+      const err=await res.json().catch(()=>({}));
+      throw new Error(err?.error?.message||`HTTP ${res.status}`);
+    }
     const d=await res.json();
     if(d.error)throw new Error(d.error.message);
     return d.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta.';
@@ -1066,29 +1068,36 @@ const Psicke=({apiKey,onGoSettings})=>{
   const send=async(textOverride=null)=>{
     const text=(textOverride??input).trim();
     if(!text||loading)return;
-    if(!apiKey){setOpen(false);onGoSettings();return;}
+    const key=(apiKey||'').trim().replace(/\s+/g,'');
+    if(!key){setOpen(false);onGoSettings();return;}
     const userMsg={role:'user',content:text};
     const next=[...msgs,userMsg];
     setMsgs(next);setInput('');setLoading(true);
     try{
-      const contents=[
-        {role:'user',parts:[{text:`[INSTRUCCIONES DEL SISTEMA]\n${PSICKE_PROMPT}\n\n[Confirma que entendiste tu rol en una sola línea]`}]},
-        {role:'model',parts:[{text:'Entendido. Soy Psicke — directa, concisa y siempre aquí. ¿En qué te puedo ayudar?'}]},
-        ...next.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
-      ];
-      const res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents,
-          generationConfig:{temperature:0.85,maxOutputTokens:512},
-        })
-      });
+      const body={
+        contents:[
+          {role:'user',parts:[{text:'Eres Psicke, IA personal. Directa, concisa, sarcástica con gracia. Español siempre. Respuestas cortas (máx 3 párrafos). No generes JSON.'}]},
+          {role:'model',parts:[{text:'Entendido. Soy Psicke. ¿En qué estás pensando?'}]},
+          ...next.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}))
+        ],
+        generationConfig:{temperature:0.85,maxOutputTokens:512},
+      };
+      const res=await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}
+      );
+      if(!res.ok){
+        const err=await res.json().catch(()=>({}));
+        throw new Error(err?.error?.message||`HTTP ${res.status}`);
+      }
       const d=await res.json();
-      if(d.error)throw new Error(d.error.message);
-      const reply=d.candidates?.[0]?.content?.parts?.[0]?.text||'...';
+      const reply=d.candidates?.[0]?.content?.parts?.[0]?.text||'Sin respuesta.';
       setMsgs(p=>[...p,{role:'assistant',content:reply}]);
     }catch(e){
-      setMsgs(p=>[...p,{role:'assistant',content:`⚠️ ${e.message}`}]);
+      const msg=e.message==='Failed to fetch'
+        ?'No se pudo conectar. Verifica tu conexión o que la API key sea válida.'
+        :e.message;
+      setMsgs(p=>[...p,{role:'assistant',content:`⚠️ ${msg}`}]);
     }
     setLoading(false);
   };
