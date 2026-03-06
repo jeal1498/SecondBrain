@@ -44,7 +44,7 @@ const load = async (key, def) => {
 };
 
 // ===================== ICONS =====================
-const Icon = ({ name, size = 18, color }) => {
+const Icon = ({ name, size = 18, color, ariaLabel }) => {
   const icons = {
     brain: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.44-4.44 2.5 2.5 0 0 1 0-3.1 2.5 2.5 0 0 1 2.44-4.5A2.5 2.5 0 0 1 9.5 2Z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.44-4.44 2.5 2.5 0 0 0 0-3.1 2.5 2.5 0 0 0-2.44-4.5A2.5 2.5 0 0 0 14.5 2Z"/></svg>,
     grid: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>,
@@ -79,7 +79,7 @@ const Icon = ({ name, size = 18, color }) => {
     money: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
     rocket: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color||'currentColor'} strokeWidth="1.8"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>,
   };
-  return <span style={{display:'inline-flex',alignItems:'center'}}>{icons[name]||null}</span>;
+  return <span style={{display:'inline-flex',alignItems:'center'}} aria-hidden={!ariaLabel} aria-label={ariaLabel||undefined} role={ariaLabel?'img':undefined}>{icons[name]||null}</span>;
 };
 
 // ===================== HELPERS =====================
@@ -89,6 +89,7 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('es-ES',{day:'2-digit',mon
 
 // ===================== MARKDOWN RENDERER =====================
 const renderMd = (text='') => text
+  .replace(/\[\[([^\]]+)\]\]/g,'<span class="backlink" data-backlink="$1" style="color:#a78bfa;cursor:pointer;text-decoration:underline;font-weight:500;border-radius:3px;padding:0 2px" title="Ir a: $1">$1</span>')
   .replace(/^### (.+)$/gm,'<h3 style="font-size:14px;font-weight:700;color:#e2eaf4;margin:10px 0 4px">$1</h3>')
   .replace(/^## (.+)$/gm,'<h2 style="font-size:16px;font-weight:700;color:#e2eaf4;margin:12px 0 6px">$1</h2>')
   .replace(/^# (.+)$/gm,'<h1 style="font-size:19px;font-weight:800;color:#e2eaf4;margin:0 0 8px">$1</h1>')
@@ -295,7 +296,7 @@ const Modal = ({title,onClose,children}) => (
       <div style={{width:36,height:4,background:T.border,borderRadius:2,margin:'0 auto 20px'}}/>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
         <h3 style={{margin:0,color:T.text,fontSize:16,fontWeight:600}}>{title}</h3>
-        <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,cursor:'pointer',padding:4,display:'flex'}}><Icon name="x" size={18}/></button>
+        <button onClick={onClose} aria-label="Cerrar búsqueda" style={{background:'none',border:'none',color:T.muted,cursor:'pointer',padding:4,display:'flex'}}><Icon name="x" size={18}/></button>
       </div>
       {children}
     </div>
@@ -367,6 +368,27 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
   const inputRef=useRef(null);
   useEffect(()=>inputRef.current?.focus(),[]);
 
+  // ── Natural language date resolver ──
+  const resolveDateRange=(q)=>{
+    const s=q.toLowerCase().trim();
+    const now=new Date(); const todayStr=today();
+    const ymd=(d)=>d.toISOString().slice(0,10);
+    const pad=(n)=>String(n).padStart(2,'0');
+    const fmt2=(d)=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    if(s==='hoy'||s==='today') return {from:todayStr,to:todayStr,label:'hoy'};
+    if(s==='ayer'||s==='yesterday'){const d=new Date(now);d.setDate(d.getDate()-1);const s2=ymd(d);return{from:s2,to:s2,label:'ayer'};}
+    if(s.match(/esta semana|this week/)){const d=new Date(now);d.setDate(d.getDate()-d.getDay());return{from:fmt2(d),to:todayStr,label:'esta semana'};}
+    if(s.match(/semana pasada|last week/)){const d=new Date(now);d.setDate(d.getDate()-d.getDay()-7);const e=new Date(d);e.setDate(e.getDate()+6);return{from:fmt2(d),to:fmt2(e),label:'semana pasada'};}
+    if(s.match(/este mes|this month/)){return{from:`${todayStr.slice(0,7)}-01`,to:todayStr,label:'este mes'};}
+    if(s.match(/mes pasado|last month/)){const d=new Date(now.getFullYear(),now.getMonth()-1,1);const e=new Date(now.getFullYear(),now.getMonth(),0);return{from:fmt2(d),to:fmt2(e),label:'mes pasado'};}
+    if(s.match(/últimos? (\d+) días?/)){const n=parseInt(s.match(/(\d+)/)[1]);const d=new Date(now);d.setDate(d.getDate()-n);return{from:fmt2(d),to:todayStr,label:`últimos ${n} días`};}
+    if(s.match(/esta semana|hace \d|hoy|ayer|este mes/)) return null;
+    return null;
+  };
+
+  const dateRange=resolveDateRange(q);
+  const isDateQuery=!!dateRange;
+
   const addRecent=(term)=>{
     if(!term.trim())return;
     const upd=[term,...recentSearches.filter(r=>r!==term)].slice(0,6);
@@ -391,6 +413,18 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
   const ql=q.toLowerCase().trim();
   const buildResults=()=>{
     if(!ql)return[];
+    // Date-range mode: filter items by date
+    if(isDateQuery){
+      const {from,to}=dateRange;
+      const inRange=(d)=>d&&d>=from&&d<=to;
+      const res=[];
+      (data.notes||[]).filter(n=>inRange(n.createdAt)).forEach(n=>res.push({type:'nota',label:n.title,sub:n.createdAt,hint:'notes:'+n.id}));
+      (data.tasks||[]).filter(t=>inRange(t.createdAt)||inRange(t.dueDate)).forEach(t=>res.push({type:'tarea',label:t.title,sub:t.dueDate||t.createdAt||'',hint:'projects'}));
+      (data.transactions||[]).filter(t=>inRange(t.date)).forEach(t=>res.push({type:'transaccion',label:t.description,sub:`${t.type==='ingreso'?'+':'-'}$${t.amount} · ${t.date}`,hint:'finance'}));
+      (data.workouts||[]).filter(w=>inRange(w.date)).forEach(w=>res.push({type:'workout',label:`${w.type} · ${w.date}`,sub:`${w.duration}min`,hint:'health'}));
+      (data.journal||[]).filter(j=>inRange(j.date)).forEach(j=>res.push({type:'nota',label:`📔 Diario ${j.date}`,sub:j.content?.slice(0,60)||'',hint:'journal'}));
+      return res;
+    }
     const res=[];
     const push=(type,label,sub,hint,raw='')=>{
       if(label.toLowerCase().includes(ql)||sub.toLowerCase().includes(ql)||raw.toLowerCase().includes(ql))
@@ -432,7 +466,7 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
           <span style={{position:'absolute',left:14,top:'50%',transform:'translateY(-50%)',color:T.muted,fontSize:17,pointerEvents:'none'}}>🔍</span>
           <input ref={inputRef} value={q} onChange={e=>{setQ(e.target.value);setExpanded(null);setActiveType('all');}} autoComplete="off"
             onKeyDown={e=>e.key==='Escape'&&onClose()}
-            placeholder="Buscar en toda la app..."
+            placeholder="Buscar… o escribe 'esta semana', 'hoy', 'últimos 7 días'…"
             style={{width:'100%',background:T.surface,border:`2px solid ${q?T.accent:T.border}`,color:T.text,padding:'14px 44px 14px 44px',borderRadius:14,fontSize:15,outline:'none',boxSizing:'border-box',fontFamily:'inherit',transition:'border-color 0.15s'}}/>
           <button onClick={onClose} style={{position:'absolute',right:12,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.muted,cursor:'pointer',display:'flex',padding:4}}>
             <Icon name="x" size={18}/>
@@ -458,9 +492,29 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
                   </div>
                 </div>
               )}
-              <div style={{color:T.dim,fontSize:12,textAlign:'center',padding:'8px 0'}}>
-                Busca notas, tareas, personas, gastos, hábitos y más — o presiona <kbd style={{background:T.surface2,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 6px',fontSize:10}}>Esc</kbd> para cerrar
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:10,fontWeight:700,color:T.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>Búsqueda por fecha</div>
+                <div style={{display:'flex',gap:5,flexWrap:'wrap'}}>
+                  {['hoy','ayer','esta semana','este mes','últimos 7 días','últimos 30 días'].map(s=>(
+                    <button key={s} onClick={()=>setQ(s)}
+                      style={{padding:'4px 11px',borderRadius:20,border:`1px solid ${T.purple}40`,background:`${T.purple}10`,color:T.purple,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+                      🗓 {s}
+                    </button>
+                  ))}
+                </div>
               </div>
+              <div style={{color:T.dim,fontSize:12,textAlign:'center',padding:'8px 0'}}>
+                Busca por nombre, o presiona <kbd style={{background:T.surface2,border:`1px solid ${T.border}`,borderRadius:4,padding:'1px 6px',fontSize:10}}>Esc</kbd> para cerrar
+              </div>
+            </div>
+          )}
+
+          {/* Date range active banner */}
+          {ql&&isDateQuery&&(
+            <div style={{padding:'8px 14px',background:`${T.purple}12`,borderBottom:`1px solid ${T.purple}30`,display:'flex',alignItems:'center',gap:8,flexShrink:0}}>
+              <span style={{fontSize:13}}>🗓</span>
+              <span style={{fontSize:12,color:T.purple,fontWeight:600}}>Mostrando registros de <strong>{dateRange.label}</strong></span>
+              <span style={{fontSize:11,color:T.dim,marginLeft:'auto'}}>{dateRange.from} → {dateRange.to}</span>
             </div>
           )}
 
@@ -488,7 +542,12 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
           {ql&&(
             <div style={{overflowY:'auto',flex:1}}>
               {filtered.length===0
-                ?<div style={{padding:'28px 16px',textAlign:'center',color:T.dim,fontSize:13}}>Sin resultados para "<span style={{color:T.accent}}>{q}</span>"</div>
+                ?<div style={{padding:'28px 16px',textAlign:'center',color:T.dim,fontSize:13}}>
+                   {isDateQuery
+                     ?<>Sin registros para <span style={{color:T.purple}}>{dateRange.label}</span></>
+                     :<>Sin resultados para "<span style={{color:T.accent}}>{q}</span>"</>
+                   }
+                 </div>
                 :filtered.map((r,i)=>{
                   const meta=TYPE_META[r.type];
                   const isExp=expanded===i;
@@ -1287,11 +1346,13 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
   const [projModal,setProjModal]=useState(false);
   const [taskModal,setTaskModal]=useState(false);
   const [projForm,setProjForm]=useState({title:'',objectiveId:'',areaId:'',status:'active'});
-  const [taskForm,setTaskForm]=useState({title:'',priority:'media',dueDate:''});
+  const [taskForm,setTaskForm]=useState({title:'',priority:'media',dueDate:'',recurrence:'none'});
   const [objFilter,setObjFilter]=useState(null);
   const [kanbanView,setKanbanView]=useState(false);
   const [listView,setListView]=useState('list');
   const [filterPriority,setFilterPriority]=useState('all');
+  const [filterArea,setFilterArea]=useState('all');
+  const [filterDeadline,setFilterDeadline]=useState('all');
   const [selectedTasks,setSelectedTasks]=useState([]);
   const [dragTask,setDragTask]=useState(null);
   const [expandedTask,setExpandedTask]=useState(null);
@@ -1323,11 +1384,31 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
     const pid=selProject.id==='__unassigned__'?'':selProject.id;
     const updated=[...data.tasks,{id:uid(),projectId:pid,status:'todo',subtasks:[],...taskForm}];
     setData(d=>({...d,tasks:updated}));save('tasks',updated);
-    setTaskModal(false);setTaskForm({title:'',priority:'media',dueDate:''});
+    setTaskModal(false);setTaskForm({title:'',priority:'media',dueDate:'',recurrence:'none'});
   };
   const [editTask,setEditTask]=useState(null);
   const [editTaskForm,setEditTaskForm]=useState({title:'',priority:'media',dueDate:''});
-  const toggleTask=(id)=>{const u=data.tasks.map(t=>t.id===id?{...t,status:t.status==='done'?'todo':'done'}:t);setData(d=>({...d,tasks:u}));save('tasks',u);};
+  const nextRecurDate=(dueDate,recurrence)=>{
+    if(!dueDate||recurrence==='none')return '';
+    const d=new Date(dueDate+'T12:00:00');
+    if(recurrence==='daily')  d.setDate(d.getDate()+1);
+    if(recurrence==='weekly') d.setDate(d.getDate()+7);
+    if(recurrence==='monthly')d.setMonth(d.getMonth()+1);
+    return d.toISOString().slice(0,10);
+  };
+  const toggleTask=(id)=>{
+    const task=data.tasks.find(t=>t.id===id);
+    const nowDone=task?.status!=='done';
+    let updated=data.tasks.map(t=>t.id===id?{...t,status:nowDone?'done':'todo'}:t);
+    // Auto-create next occurrence when completing a recurring task
+    if(nowDone&&task?.recurrence&&task.recurrence!=='none'){
+      const nextDate=nextRecurDate(task.dueDate,task.recurrence);
+      const clone={...task,id:uid(),status:'todo',dueDate:nextDate,createdAt:today()};
+      updated=[...updated,clone];
+      toast.info(`🔁 Tarea recurrente regenerada para ${nextDate||'la próxima vez'}`);
+    }
+    setData(d=>({...d,tasks:updated}));save('tasks',updated);
+  };
   const delTask=(id)=>{if(!window.confirm('¿Eliminar esta tarea?'))return;const u=data.tasks.filter(t=>t.id!==id);setData(d=>({...d,tasks:u}));save('tasks',u);};
   const startEditTask=(t)=>{setEditTaskForm({title:t.title,priority:t.priority||'media',dueDate:t.dueDate||''});setEditTask(t.id);};
   const saveEditTask=()=>{const u=data.tasks.map(t=>t.id===editTask?{...t,...editTaskForm}:t);setData(d=>({...d,tasks:u}));save('tasks',u);setEditTask(null);};
@@ -1369,7 +1450,25 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
     {id:'done',label:'Completado',color:T.accent},
   ];
 
-  const filteredPTasks=pTasks.filter(t=>filterPriority==='all'||t.priority===filterPriority);
+  const filteredPTasks=pTasks.filter(t=>{
+    if(filterPriority!=='all'&&t.priority!==filterPriority) return false;
+    if(filterArea!=='all'){
+      const proj=data.projects.find(p=>p.id===t.projectId);
+      if((proj?.areaId||''  )!==filterArea) return false;
+    }
+    if(filterDeadline!=='all'){
+      const td=today();
+      if(filterDeadline==='overdue'  &&!(t.dueDate&&t.dueDate<td&&t.status!=='done'))  return false;
+      if(filterDeadline==='today'    &&!(t.dueDate===td))                               return false;
+      if(filterDeadline==='week'){
+        const wEnd=new Date();wEnd.setDate(wEnd.getDate()+7);
+        const we=wEnd.toISOString().slice(0,10);
+        if(!(t.dueDate&&t.dueDate>=td&&t.dueDate<=we))                                 return false;
+      }
+      if(filterDeadline==='nodate'   &&t.dueDate)                                       return false;
+    }
+    return true;
+  });
   const totalPTasks=pTasks.length;
   const donePTasks=pTasks.filter(t=>t.status==='done').length;
   const donePct=totalPTasks?Math.round(donePTasks/totalPTasks*100):0;
@@ -1395,6 +1494,7 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
             <div style={{display:'flex',gap:6,marginTop:5,flexWrap:'wrap',alignItems:'center',paddingLeft:26}}>
               <span style={{fontSize:10,fontWeight:700,color:pColors[t.priority]||T.muted,background:`${pColors[t.priority]||T.muted}18`,padding:'1px 7px',borderRadius:5}}>{t.priority||'media'}</span>
               {t.dueDate&&<span style={{fontSize:10,color:T.dim}}>{fmt(t.dueDate)}</span>}
+              {t.recurrence&&t.recurrence!=='none'&&<span style={{fontSize:10,color:T.blue,background:`${T.blue}15`,padding:'1px 6px',borderRadius:5}}>🔁 {t.recurrence==='daily'?'diaria':t.recurrence==='weekly'?'semanal':'mensual'}</span>}
               {totalSubs>0&&<span style={{fontSize:10,color:T.muted}}>{doneSubs}/{totalSubs} subtareas</span>}
             </div>
           </div>
@@ -1479,6 +1579,12 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
           <option value="baja">🟢 Baja</option><option value="media">🟡 Media</option><option value="alta">🔴 Alta</option>
         </Select>
         <Input type="date" value={taskForm.dueDate} onChange={v=>setTaskForm(f=>({...f,dueDate:v}))}/>
+        <Select value={taskForm.recurrence} onChange={v=>setTaskForm(f=>({...f,recurrence:v}))}>
+          <option value="none">🔂 Sin repetición</option>
+          <option value="daily">🔁 Diaria</option>
+          <option value="weekly">📅 Semanal</option>
+          <option value="monthly">🗓️ Mensual</option>
+        </Select>
         <Btn onClick={saveTask} style={{width:'100%',justifyContent:'center'}}>Crear tarea</Btn>
       </div>
     </Modal>}
@@ -1550,8 +1656,9 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
       {totalPTasks>0&&<div style={{height:4,background:T.border,borderRadius:2,marginBottom:12,overflow:'hidden'}}><div style={{height:'100%',width:`${donePct}%`,background:T.accent,borderRadius:2,transition:'width 0.4s'}}/></div>}
 
       <div style={{display:'flex',gap:6,marginBottom:12,flexWrap:'wrap',alignItems:'center'}}>
-        <div style={{display:'flex',gap:4}}>
-          {[['all','Todos'],['alta','Alta'],['media','Media'],['baja','Baja']].map(([v,l])=>(
+        {/* Priority */}
+        <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
+          {[['all','Todos'],['alta','🔴 Alta'],['media','🟡 Media'],['baja','🟢 Baja']].map(([v,l])=>(
             <button key={v} onClick={()=>setFilterPriority(v)}
               style={{padding:'4px 10px',borderRadius:8,border:`1px solid ${filterPriority===v?(v==='alta'?T.red:v==='media'?T.accent:v==='baja'?T.green:T.accent):T.border}`,
                 background:filterPriority===v?(v==='alta'?`${T.red}18`:v==='media'?`${T.accent}18`:v==='baja'?`${T.green}18`:`${T.accent}18`):'transparent',
@@ -1561,6 +1668,30 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
             </button>
           ))}
         </div>
+        {/* Area */}
+        {data.areas.length>0&&(
+          <select value={filterArea} onChange={e=>setFilterArea(e.target.value)}
+            style={{background:T.surface2,border:`1px solid ${filterArea!=='all'?T.purple:T.border}`,color:filterArea!=='all'?T.purple:T.muted,padding:'4px 8px',borderRadius:8,fontSize:11,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+            <option value="all">Todas las áreas</option>
+            {data.areas.map(a=><option key={a.id} value={a.id}>{a.icon} {a.name}</option>)}
+          </select>
+        )}
+        {/* Deadline */}
+        <select value={filterDeadline} onChange={e=>setFilterDeadline(e.target.value)}
+          style={{background:T.surface2,border:`1px solid ${filterDeadline!=='all'?T.orange:T.border}`,color:filterDeadline!=='all'?T.orange:T.muted,padding:'4px 8px',borderRadius:8,fontSize:11,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+          <option value="all">Cualquier fecha</option>
+          <option value="overdue">⚠️ Vencidas</option>
+          <option value="today">📅 Hoy</option>
+          <option value="week">🗓 Esta semana</option>
+          <option value="nodate">— Sin fecha</option>
+        </select>
+        {/* Active filter count + reset */}
+        {(filterPriority!=='all'||filterArea!=='all'||filterDeadline!=='all')&&(
+          <button onClick={()=>{setFilterPriority('all');setFilterArea('all');setFilterDeadline('all');}}
+            style={{marginLeft:'auto',padding:'4px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.dim,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+            ✕ Limpiar filtros
+          </button>
+        )}
         {selectedTasks.length>0&&(
           <button onClick={bulkMarkDone}
             style={{marginLeft:'auto',padding:'4px 12px',borderRadius:8,border:`1px solid ${T.accent}`,background:`${T.accent}15`,color:T.accent,cursor:'pointer',fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
@@ -1568,6 +1699,12 @@ const ProjectsAndTasks = ({data,setData,isMobile,viewHint,onConsumeHint,onNaviga
           </button>
         )}
       </div>
+      {/* Active filters summary */}
+      {(filterPriority!=='all'||filterArea!=='all'||filterDeadline!=='all')&&(
+        <div style={{fontSize:11,color:T.dim,marginBottom:8}}>
+          {filteredPTasks.length} tarea{filteredPTasks.length!==1?'s':''} con los filtros aplicados
+        </div>
+      )}
 
       {/* LIST VIEW */}
       {listView==='list'&&(
@@ -1711,6 +1848,7 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
   ];
 
   const renderMd=(text)=>text
+    .replace(/\[\[([^\]]+)\]\]/g,'<span class="backlink" data-backlink="$1" style="color:#a78bfa;cursor:pointer;text-decoration:underline;font-weight:500;border-radius:3px;padding:0 2px" title="Ir a: $1">$1</span>')
     .replace(/^### (.+)$/gm,'<h4 style="color:#e2eaf4;margin:8px 0 4px;font-size:12px">$1</h4>')
     .replace(/^## (.+)$/gm,'<h3 style="color:#e2eaf4;margin:10px 0 6px;font-size:14px">$1</h3>')
     .replace(/^# (.+)$/gm,'<h2 style="color:#e2eaf4;margin:12px 0 8px;font-size:16px">$1</h2>')
@@ -1838,7 +1976,7 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
               <div style={{display:'flex',gap:6,marginLeft:10,flexShrink:0}}>
                 <button onClick={()=>setMdPreview(p=>!p)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontFamily:'inherit'}}>{mdPreview?'Raw':'Preview'}</button>
                 <button onClick={()=>startEdit(sel)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontFamily:'inherit'}}>✏️</button>
-                <button onClick={()=>del(sel.id)} style={{background:'none',border:'none',color:T.red,cursor:'pointer',padding:4}}><Icon name="trash" size={14}/></button>
+                <button onClick={()=>del(sel.id)} aria-label="Eliminar nota" style={{background:'none',border:'none',color:T.red,cursor:'pointer',padding:4}}><Icon name="trash" size={14}/></button>
               </div>
             </div>
             {(sel.tags||[]).length>0&&(
@@ -1846,7 +1984,16 @@ const Notes = ({data,setData,isMobile,viewHint,onConsumeHint}) => {
                 {sel.tags.map(t=><span key={t} style={{fontSize:11,color:T.purple,background:`${T.purple}15`,padding:'2px 8px',borderRadius:8}}>#{t}</span>)}
               </div>
             )}
-            <div style={{background:T.surface2,borderRadius:10,padding:'14px 16px',minHeight:120,lineHeight:1.7,fontSize:13,color:T.text}}>
+            <div style={{background:T.surface2,borderRadius:10,padding:'14px 16px',minHeight:120,lineHeight:1.7,fontSize:13,color:T.text}}
+              onClick={e=>{
+                const bl=e.target.closest?.('[data-backlink]');
+                if(bl){
+                  const title=bl.getAttribute('data-backlink');
+                  const target=data.notes.find(n=>n.title.toLowerCase()===title.toLowerCase());
+                  if(target){setSel(target);if(isMobile)setShowNote(true);}
+                  else{toast.info(`Nota "${title}" no encontrada`);}
+                }
+              }}>
               {mdPreview
                 ?<div dangerouslySetInnerHTML={{__html:renderMd(sel.content||'')}}/>
                 :<pre style={{margin:0,fontFamily:'inherit',whiteSpace:'pre-wrap',color:T.muted}}>{sel.content}</pre>
@@ -1972,6 +2119,27 @@ const Inbox = ({data,setData,isMobile}) => {
   const [text,setText]=useState('');
   const [wizard,setWizard]=useState(null);
   const [wizardStep,setWizardStep]=useState(0);
+  // Swipe state for mobile
+  const swipeTouchX = useRef({});
+  const [swipeOffsets, setSwipeOffsets] = useState({});   // { id: deltaX }
+  const SWIPE_THRESHOLD = 72;
+
+  const onSwipeStart=(id,e)=>{
+    swipeTouchX.current[id]=e.touches[0].clientX;
+  };
+  const onSwipeMove=(id,e)=>{
+    const start=swipeTouchX.current[id];
+    if(start==null)return;
+    const delta=e.touches[0].clientX-start;
+    setSwipeOffsets(prev=>({...prev,[id]:delta}));
+  };
+  const onSwipeEnd=(id,item,e)=>{
+    const delta=swipeOffsets[id]||0;
+    setSwipeOffsets(prev=>{const n={...prev};delete n[id];return n;});
+    delete swipeTouchX.current[id];
+    if(delta>SWIPE_THRESHOLD){convertToNote(item);}
+    else if(delta<-SWIPE_THRESHOLD){del(id);}
+  };
 
   const add=()=>{
     if(!text.trim())return;
@@ -2049,7 +2217,7 @@ const Inbox = ({data,setData,isMobile}) => {
       {/* Quick capture input */}
       <div style={{display:'flex',gap:10,marginBottom:20}}>
         <Input value={text} onChange={setText} placeholder="¿Qué tienes en mente?" style={{flex:1}} onKeyDown={e=>e.key==='Enter'&&add()}/>
-        <button onClick={add} style={{background:T.accent,border:'none',borderRadius:10,padding:'0 16px',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}><Icon name="plus" size={20} color="#000"/></button>
+        <button onClick={add} aria-label="Agregar al inbox" style={{background:T.accent,border:'none',borderRadius:10,padding:'0 16px',cursor:'pointer',display:'flex',alignItems:'center',flexShrink:0}}><Icon name="plus" size={20} color="#000"/></button>
       </div>
 
       {/* Pending items */}
@@ -2062,44 +2230,85 @@ const Inbox = ({data,setData,isMobile}) => {
             const days=daysAgo(i.createdAt);
             const isOld=days>=3;
             const suggestion=getSuggestion(i.content);
+            const swipeDelta  = swipeOffsets[i.id] || 0;
+            const swipeAbs    = Math.abs(swipeDelta);
+            const swipeRight  = swipeDelta > 0;
+            const swipeActive = swipeAbs > 8;
+            const swipeReady  = swipeAbs >= SWIPE_THRESHOLD;
             return (
-              <Card key={i.id} style={{marginBottom:10,borderLeft:`3px solid ${isOld?T.orange:T.accent}`,position:'relative',overflow:'hidden'}}>
-                {/* Age badge */}
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
-                  <p style={{color:T.text,margin:0,fontSize:14,lineHeight:1.5,flex:1,paddingRight:8}}>{i.content}</p>
-                  <div style={{flexShrink:0,fontSize:10,fontWeight:700,
-                    color:isOld?T.orange:days===0?T.muted:T.dim,
-                    background:isOld?`${T.orange}15`:'transparent',
-                    border:isOld?`1px solid ${T.orange}30`:'none',
-                    padding:isOld?'2px 8px':'0',borderRadius:6,whiteSpace:'nowrap'}}>
-                    {days===0?'Hoy':days===1?'Ayer':`${days}d sin procesar`}
+              <div key={i.id} style={{position:'relative',marginBottom:10,borderRadius:14,overflow:'hidden'}}>
+                {/* Swipe hint bg — mobile only */}
+                {isMobile&&swipeActive&&(
+                  <div style={{
+                    position:'absolute',inset:0,borderRadius:14,pointerEvents:'none',
+                    background: swipeRight
+                      ? `linear-gradient(90deg,${T.accent}${swipeReady?'44':'18'},${T.accent}${swipeReady?'28':'10'})`
+                      : `linear-gradient(270deg,${T.red}${swipeReady?'44':'18'},${T.red}${swipeReady?'28':'10'})`,
+                    display:'flex',alignItems:'center',
+                    justifyContent:swipeRight?'flex-start':'flex-end',
+                    padding:'0 22px',
+                  }}>
+                    <span style={{fontSize:22,opacity:swipeReady?1:0.45,transition:'opacity 0.12s'}}>
+                      {swipeRight?'📝':'🗑️'}
+                    </span>
                   </div>
-                </div>
+                )}
+                <Card
+                  onTouchStart={isMobile?e=>onSwipeStart(i.id,e):undefined}
+                  onTouchMove={isMobile?e=>onSwipeMove(i.id,e):undefined}
+                  onTouchEnd={isMobile?e=>onSwipeEnd(i.id,i,e):undefined}
+                  style={{
+                    borderLeft:`3px solid ${isOld?T.orange:T.accent}`,
+                    position:'relative',overflow:'hidden',
+                    transform:isMobile&&swipeActive?`translateX(${Math.sign(swipeDelta)*Math.min(swipeAbs,110)}px)`:'translateX(0)',
+                    transition:swipeActive?'none':'transform 0.22s ease',
+                    touchAction:'pan-y',
+                    userSelect:'none',
+                  }}>
+                  {/* Age badge */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
+                    <p style={{color:T.text,margin:0,fontSize:14,lineHeight:1.5,flex:1,paddingRight:8}}>{i.content}</p>
+                    <div style={{flexShrink:0,fontSize:10,fontWeight:700,
+                      color:isOld?T.orange:days===0?T.muted:T.dim,
+                      background:isOld?`${T.orange}15`:'transparent',
+                      border:isOld?`1px solid ${T.orange}30`:'none',
+                      padding:isOld?'2px 8px':'0',borderRadius:6,whiteSpace:'nowrap'}}>
+                      {days===0?'Hoy':days===1?'Ayer':`${days}d sin procesar`}
+                    </div>
+                  </div>
 
-                {/* AI suggestion */}
-                <div style={{display:'inline-flex',alignItems:'center',gap:5,marginBottom:10,
-                  background:`${T.purple}10`,border:`1px solid ${T.purple}25`,
-                  borderRadius:7,padding:'4px 10px'}}>
-                  <span style={{fontSize:11}}>⚡</span>
-                  <span style={{fontSize:11,color:T.purple,fontWeight:600}}>Psicke sugiere:</span>
-                  <span style={{fontSize:11,color:T.muted}}>{suggestion.icon} {suggestion.module}</span>
-                </div>
+                  {/* AI suggestion */}
+                  <div style={{display:'inline-flex',alignItems:'center',gap:5,marginBottom:10,
+                    background:`${T.purple}10`,border:`1px solid ${T.purple}25`,
+                    borderRadius:7,padding:'4px 10px'}}>
+                    <span style={{fontSize:11}}>⚡</span>
+                    <span style={{fontSize:11,color:T.purple,fontWeight:600}}>Psicke sugiere:</span>
+                    <span style={{fontSize:11,color:T.muted}}>{suggestion.icon} {suggestion.module}</span>
+                  </div>
 
-                {/* Action buttons */}
-                <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
-                  <button onClick={()=>{setWizard(i);setWizardStep(0);}}
-                    style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${T.accent}50`,
-                      background:`${T.accent}12`,color:T.accent,cursor:'pointer',
-                      fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
-                    🧭 Procesar con GTD
-                  </button>
-                  <Btn size="sm" variant="ghost" onClick={()=>convertToNote(i)}>📝 Nota</Btn>
-                  <Btn size="sm" variant="ghost" onClick={()=>convertToTask(i)}>✅ Tarea</Btn>
-                  <Btn size="sm" variant="ghost" onClick={()=>convertToObjective(i)}>🎯 Objetivo</Btn>
-                  <Btn size="sm" variant="ghost" onClick={()=>process(i)}>✓ Listo</Btn>
-                  <Btn size="sm" variant="danger" onClick={()=>del(i.id)}><Icon name="trash" size={11}/></Btn>
-                </div>
-              </Card>
+                  {/* Swipe hint label — mobile, only when idle */}
+                  {isMobile&&!swipeActive&&(
+                    <div style={{fontSize:10,color:T.dim,marginBottom:8,letterSpacing:0.2}}>
+                      ← eliminar &nbsp;·&nbsp; → guardar como nota
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div style={{display:'flex',gap:6,flexWrap:'wrap'}}>
+                    <button onClick={()=>{setWizard(i);setWizardStep(0);}}
+                      style={{padding:'6px 12px',borderRadius:8,border:`1px solid ${T.accent}50`,
+                        background:`${T.accent}12`,color:T.accent,cursor:'pointer',
+                        fontSize:11,fontWeight:700,fontFamily:'inherit'}}>
+                      🧭 Procesar con GTD
+                    </button>
+                    <Btn size="sm" variant="ghost" onClick={()=>convertToNote(i)}>📝 Nota</Btn>
+                    <Btn size="sm" variant="ghost" onClick={()=>convertToTask(i)}>✅ Tarea</Btn>
+                    <Btn size="sm" variant="ghost" onClick={()=>convertToObjective(i)}>🎯 Objetivo</Btn>
+                    <Btn size="sm" variant="ghost" onClick={()=>process(i)}>✓ Listo</Btn>
+                    <Btn size="sm" variant="danger" onClick={()=>del(i.id)} aria-label="Eliminar ítem"><Icon name="trash" size={11}/></Btn>
+                  </div>
+                </Card>
+              </div>
             );
           })}
         </div>
@@ -2113,7 +2322,7 @@ const Inbox = ({data,setData,isMobile}) => {
             <div key={i.id} style={{display:'flex',gap:10,alignItems:'center',padding:'10px 0',borderBottom:`1px solid ${T.border}`}}>
               <Icon name="check" size={14} color={T.green}/>
               <span style={{color:T.muted,fontSize:14,flex:1}}>{i.content}</span>
-              <button onClick={()=>del(i.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={14}/></button>
+              <button onClick={()=>del(i.id)} aria-label="Eliminar ítem procesado" style={{background:'none',border:'none',color:T.dim,cursor:'pointer',display:'flex',padding:4}}><Icon name="trash" size={14}/></button>
             </div>
           ))}
         </div>
@@ -3133,6 +3342,7 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
   const [editingIdx,setEditingIdx]=useState(null);
   const [editVal,setEditVal]=useState('');
   const [copied,setCopied]=useState(null);
+  const [slashMenu,setSlashMenu]=useState(false);
   const bottomRef=useRef(null);
   const recRef=useRef(null);
   const inputRef=useRef(null);
@@ -3160,6 +3370,21 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
   useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:'smooth'});},[msgs,open]);
   useEffect(()=>{if(open)setTimeout(()=>inputRef.current?.focus(),300);},[open]);
 
+  // ── Daily auto-summary — fires once per day when panel opens ──
+  useEffect(()=>{
+    if(!open||!apiKey) return;
+    const key='psicke_daily_summary';
+    const lastDate=localStorage.getItem(key);
+    if(lastDate===today()) return;
+    // Wait a beat so the panel animation finishes
+    const timer=setTimeout(()=>{
+      localStorage.setItem(key,today());
+      send('Hazme un resumen breve de mi día: tareas pendientes, hábitos sin completar, finanzas del mes y objetivos activos. Máximo 4 puntos clave.');
+    },900);
+    return()=>clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[open]);
+
   // Subtle pulse every 8s to remind user Psicke exists
   useEffect(()=>{
     if(open)return;
@@ -3183,6 +3408,28 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
     return s.slice(0,4);
   };
   const suggestions=buildSuggestions();
+
+  // ── Slash commands ──
+  const SLASH_CMDS=[
+    {cmd:'/nota',    icon:'📝', label:'Nueva nota',        tpl:'Guarda una nota: '},
+    {cmd:'/tarea',   icon:'✅', label:'Nueva tarea',       tpl:'Crea una tarea: '},
+    {cmd:'/gasto',   icon:'💸', label:'Registrar gasto',   tpl:'Registra un gasto de $'},
+    {cmd:'/hábito',  icon:'🔁', label:'Nuevo hábito',      tpl:'Crea el hábito: '},
+    {cmd:'/objetivo',icon:'🎯', label:'Nuevo objetivo',    tpl:'Agrega el objetivo: '},
+    {cmd:'/resumen', icon:'📊', label:'Resumen del día',   tpl:'Hazme un resumen de hoy'},
+  ];
+  const filteredCmds=input.startsWith('/')
+    ? SLASH_CMDS.filter(c=>c.cmd.startsWith(input.split(' ')[0]))
+    : SLASH_CMDS;
+  const handleInput=(val)=>{
+    setInput(val);
+    setSlashMenu(val.startsWith('/'));
+  };
+  const applySlashCmd=(cmd)=>{
+    setInput(cmd.tpl);
+    setSlashMenu(false);
+    setTimeout(()=>inputRef.current?.focus(),50);
+  };
 
   const send=async(textOverride=null)=>{
     const text=(textOverride??input).trim();
@@ -3670,21 +3917,42 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
             {/* Input area */}
             <div style={{padding:'12px 16px 20px',flexShrink:0,borderTop:`1px solid ${T.border}`,marginTop:8}}>
               {recording&&<div style={{textAlign:'center',color:T.red,fontSize:11,fontWeight:600,marginBottom:6,letterSpacing:1}}>● ESCUCHANDO</div>}
+              {/* Slash command menu */}
+              {slashMenu&&filteredCmds.length>0&&(
+                <div style={{background:T.surface2,border:`1px solid ${T.border}`,borderRadius:12,marginBottom:8,overflow:'hidden',boxShadow:'0 4px 20px rgba(0,0,0,0.4)'}}>
+                  {filteredCmds.map(c=>(
+                    <div key={c.cmd} onClick={()=>applySlashCmd(c)}
+                      style={{display:'flex',alignItems:'center',gap:10,padding:'9px 14px',cursor:'pointer',borderBottom:`1px solid ${T.border}`}}
+                      onMouseEnter={e=>e.currentTarget.style.background=`${T.accent}10`}
+                      onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                      <span style={{fontSize:16}}>{c.icon}</span>
+                      <div>
+                        <span style={{fontSize:13,fontWeight:700,color:T.accent}}>{c.cmd}</span>
+                        <span style={{fontSize:12,color:T.muted,marginLeft:8}}>{c.label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <div style={{display:'flex',gap:8,alignItems:'center'}}>
-                <button onClick={toggleMic} style={{
+                <button onClick={toggleMic} aria-label={recording?'Detener grabación':'Iniciar grabación de voz'} style={{
                   width:38,height:38,borderRadius:'50%',border:`2px solid ${recording?T.red:T.border}`,
                   background:recording?`${T.red}22`:'transparent',cursor:'pointer',
                   display:'flex',alignItems:'center',justifyContent:'center',
                   color:recording?T.red:T.muted,flexShrink:0,transition:'all 0.2s'}}>
                   <Icon name={recording?'micoff':'mic'} size={16} color={recording?T.red:undefined}/>
                 </button>
-                <input ref={inputRef} value={input} onChange={e=>setInput(e.target.value)}
-                  onKeyDown={e=>e.key==='Enter'&&!e.shiftKey&&send()}
+                <input ref={inputRef} value={input} onChange={e=>{handleInput(e.target.value);}}
+                  onKeyDown={e=>{
+                    if(e.key==='Escape'){setSlashMenu(false);return;}
+                    if(e.key==='Enter'&&!e.shiftKey){setSlashMenu(false);send();}
+                  }}
                   autoComplete="off" autoCorrect="off" spellCheck="false"
-                  placeholder="Pregunta, idea, decisión..."
+                  placeholder="Pregunta, idea o escribe / para comandos..."
                   style={{flex:1,background:T.bg,border:`1px solid ${T.border}`,color:T.text,
                     padding:'10px 14px',borderRadius:12,fontSize:14,outline:'none',fontFamily:'inherit'}}/>
-                <button onClick={()=>send()} disabled={!input.trim()||loading}
+                <button onClick={()=>{setSlashMenu(false);send();}} disabled={!input.trim()||loading}
+                  aria-label="Enviar mensaje"
                   style={{width:38,height:38,borderRadius:'50%',border:'none',flexShrink:0,
                     background:input.trim()&&!loading?T.accent:'transparent',
                     border:input.trim()&&!loading?'none':`1px solid ${T.border}`,
@@ -4907,6 +5175,8 @@ const Relaciones = ({data,setData,isMobile,onBack}) => {
   const [personForm,setPersonForm]     = useState({name:'',relation:'',birthday:'',emoji:'👤',phone:'',email:'',notes:''});
   const [followForm,setFollowForm]     = useState({personId:'',task:'',dueDate:'',priority:'media',done:false});
   const [interForm,setInterForm]       = useState({personId:'',type:'Mensaje',notes:'',date:today()});
+  const [personSearch,setPersonSearch] = useState('');
+  const [relationFilter,setRelationFilter] = useState('todas');
 
   const people       = data.people||[];
   const followUps    = data.followUps||[];
@@ -4973,6 +5243,32 @@ const Relaciones = ({data,setData,isMobile,onBack}) => {
   const personName=(id)=>people.find(p=>p.id===id)?.name||'Desconocido';
   const personEmoji=(id)=>people.find(p=>p.id===id)?.emoji||'👤';
 
+  // ── Export contacts ──
+  const exportContactsCSV=()=>{
+    const rows=[['Nombre','Relación','Cumpleaños','Teléfono','Email','Notas'],
+      ...people.map(p=>[p.name,p.relation||'',p.birthday||'',p.phone||'',p.email||'',(p.notes||'').replace(/,/g,';')])];
+    const csv=rows.map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='contactos.csv';a.click();
+    toast.success(`📥 ${people.length} contactos exportados`);
+  };
+  const exportContactsVCard=()=>{
+    const vcf=people.map(p=>[
+      'BEGIN:VCARD','VERSION:3.0',
+      `FN:${p.name}`,
+      p.phone?`TEL:${p.phone}`:'',
+      p.email?`EMAIL:${p.email}`:'',
+      p.birthday?`BDAY:${p.birthday.replace(/-/g,'')}`.slice(0,14):'',
+      p.notes?`NOTE:${p.notes.replace(/\n/g,'\\n')}`:'',
+      'END:VCARD'
+    ].filter(Boolean).join('\r\n')).join('\r\n\r\n');
+    const blob=new Blob([vcf],{type:'text/vcard;charset=utf-8;'});
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+    a.download='contactos.vcf';a.click();
+    toast.success(`📱 ${people.length} contactos exportados como vCard`);
+  };
+
   // ── Temperature helpers ──
   const daysAgoFn=(date)=>{try{return Math.floor((new Date()-new Date(date+'T12:00:00'))/86400000);}catch{return 999;}};
   const lastContactDate=(p)=>{
@@ -4990,7 +5286,13 @@ const Relaciones = ({data,setData,isMobile,onBack}) => {
       <PageHeader isMobile={isMobile} title="👥 Relaciones" onBack={onBack}
         subtitle="CRM personal — personas, seguimientos e interacciones"
         action={
-          <div style={{display:'flex',gap:8}}>
+          <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+            {tab==='personas'&&people.length>0&&(
+              <div style={{display:'flex',gap:4}}>
+                <button onClick={exportContactsCSV} title="Exportar CSV" style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>↓ CSV</button>
+                <button onClick={exportContactsVCard} title="Exportar vCard" style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>↓ vCard</button>
+              </div>
+            )}
             {tab==='personas'     &&<Btn size="sm" onClick={()=>{setEditingPerson(null);setPersonForm({name:'',relation:'',birthday:'',emoji:'👤',phone:'',email:'',notes:''});setModalPerson(true);}}><Icon name="plus" size={14}/>Persona</Btn>}
             {tab==='seguimientos' &&<Btn size="sm" onClick={()=>{setFollowForm({personId:selPerson?.id||'',task:'',dueDate:'',priority:'media',done:false});setModalFollowUp(true);}}><Icon name="plus" size={14}/>Seguimiento</Btn>}
             {tab==='historial'    &&<Btn size="sm" onClick={()=>{setInterForm({personId:selPerson?.id||'',type:'Mensaje',notes:'',date:today()});setModalInteraction(true);}}><Icon name="plus" size={14}/>Contacto</Btn>}
@@ -5119,8 +5421,46 @@ const Relaciones = ({data,setData,isMobile,onBack}) => {
                <div style={{fontSize:14,marginBottom:12}}>Sin personas registradas</div>
                <Btn size="sm" onClick={()=>setModalPerson(true)}><Icon name="plus" size={13}/>Agregar</Btn>
              </div>
-            :<div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(auto-fill,minmax(180px,1fr))',gap:10}}>
-               {people.map(p=>{
+            :<div>
+               {/* Search + relation filter */}
+               <div style={{display:'flex',gap:8,marginBottom:12,flexWrap:'wrap'}}>
+                 <div style={{flex:1,minWidth:160,position:'relative'}}>
+                   <span style={{position:'absolute',left:10,top:'50%',transform:'translateY(-50%)',fontSize:13,color:T.dim,pointerEvents:'none'}}>🔍</span>
+                   <input value={personSearch} onChange={e=>setPersonSearch(e.target.value)}
+                     placeholder="Buscar por nombre, relación…"
+                     style={{width:'100%',background:T.surface2,border:`1px solid ${personSearch?T.accent:T.border}`,color:T.text,padding:'8px 10px 8px 30px',borderRadius:10,fontSize:13,outline:'none',fontFamily:'inherit',boxSizing:'border-box',transition:'border-color 0.15s'}}/>
+                   {personSearch&&<button onClick={()=>setPersonSearch('')} style={{position:'absolute',right:8,top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:T.dim,cursor:'pointer',fontSize:14,padding:2}}>✕</button>}
+                 </div>
+                 <select value={relationFilter} onChange={e=>setRelationFilter(e.target.value)}
+                   style={{background:T.surface2,border:`1px solid ${relationFilter!=='todas'?T.accent:T.border}`,color:T.text,padding:'8px 10px',borderRadius:10,fontSize:13,outline:'none',fontFamily:'inherit',cursor:'pointer'}}>
+                   <option value="todas">Todas las relaciones</option>
+                   {[...new Set(people.map(p=>p.relation).filter(Boolean))].sort().map(r=><option key={r}>{r}</option>)}
+                 </select>
+               </div>
+               {/* Results count when filtering */}
+               {(personSearch||relationFilter!=='todas')&&(()=>{
+                 const ps=q=>q.toLowerCase();
+                 const match=(p)=>{
+                   const sq=ps(personSearch);
+                   const textMatch=!sq||(ps(p.name).includes(sq)||ps(p.relation||'').includes(sq)||ps(p.notes||'').includes(sq)||ps(p.phone||'').includes(sq)||ps(p.email||'').includes(sq));
+                   const relMatch=relationFilter==='todas'||p.relation===relationFilter;
+                   return textMatch&&relMatch;
+                 };
+                 const cnt=people.filter(match).length;
+                 return <div style={{fontSize:11,color:T.muted,marginBottom:8}}>{cnt} persona{cnt!==1?'s':''} encontrada{cnt!==1?'s':''}</div>;
+               })()}
+               <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(auto-fill,minmax(180px,1fr))',gap:10}}>
+               {(()=>{
+                 const ps=q=>q.toLowerCase();
+                 const match=(p)=>{
+                   const sq=ps(personSearch);
+                   const textMatch=!sq||(ps(p.name).includes(sq)||ps(p.relation||'').includes(sq)||ps(p.notes||'').includes(sq)||ps(p.phone||'').includes(sq)||ps(p.email||'').includes(sq));
+                   const relMatch=relationFilter==='todas'||p.relation===relationFilter;
+                   return textMatch&&relMatch;
+                 };
+                 const visible=people.filter(match);
+                 if(!visible.length) return <div style={{gridColumn:'1/-1',textAlign:'center',padding:'28px 0',color:T.dim,fontSize:13}}>Sin resultados para "<span style={{color:T.accent}}>{personSearch}</span>"</div>;
+                 return visible.map(p=>{
                  const dl=birthdayDaysLeft(p.birthday);
                  const pFollows=followUps.filter(f=>f.personId===p.id&&!f.done).length;
                  const lcd=lastContactDate(p);
@@ -5139,7 +5479,9 @@ const Relaciones = ({data,setData,isMobile,onBack}) => {
                      {pFollows>0&&<div style={{marginTop:5,fontSize:10,color:T.accent,background:`${T.accent}15`,padding:'1px 7px',borderRadius:7,display:'inline-block'}}>{pFollows} pendiente{pFollows>1?'s':''}</div>}
                    </div>
                  );
-               })}
+                 });
+               })()}
+               </div>
              </div>
           }
         </div>
@@ -6152,8 +6494,48 @@ const Health = ({data,setData,isMobile,onBack}) => {
   const [metric,setMetric]=useState('peso');
   const [workoutModal,setWorkoutModal]=useState(false);
   const [metricModal,setMetricModal]=useState(false);
+  const [medModal,setMedModal]=useState(false);
   const [wForm,setWForm]=useState({type:'Gym',date:today(),duration:60,calories:0,distance:''});
   const [mForm,setMForm]=useState({metric:'peso',value:'',date:today()});
+  const [medForm,setMedForm]=useState({name:'',dose:'',unit:'mg',frequency:'Diaria',time:'08:00',notes:''});
+  // Scheduled notification interval refs: { medId: intervalId }
+  const notifRefs=useRef({});
+
+  const meds=data.medications||[];
+
+  const saveMed=()=>{
+    if(!medForm.name.trim())return;
+    const m={id:uid(),...medForm,createdAt:today()};
+    const upd=[m,...meds];
+    setData(d=>({...d,medications:upd}));save('medications',upd);
+    setMedModal(false);setMedForm({name:'',dose:'',unit:'mg',frequency:'Diaria',time:'08:00',notes:''});
+    toast.success(`💊 ${m.name} agregado`);
+  };
+  const delMed=(id)=>{
+    // Cancel any pending notification for this med
+    clearTimeout(notifRefs.current[id]);
+    const upd=meds.filter(m=>m.id!==id);
+    setData(d=>({...d,medications:upd}));save('medications',upd);
+  };
+  const scheduleMedNotif=(med)=>{
+    if(!('Notification' in window)||Notification.permission!=='granted'){
+      toast.warn('Activa las notificaciones del navegador en Configuración primero.');
+      return;
+    }
+    const [hh,mm]=(med.time||'08:00').split(':').map(Number);
+    const now=new Date();
+    const next=new Date(now.getFullYear(),now.getMonth(),now.getDate(),hh,mm,0,0);
+    if(next<=now) next.setDate(next.getDate()+1);
+    const ms=next-now;
+    clearTimeout(notifRefs.current[med.id]);
+    notifRefs.current[med.id]=setTimeout(()=>{
+      new Notification(`💊 Medicamento: ${med.name}`,{
+        body:`${med.dose}${med.unit} — ${med.frequency}`,
+        icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><text y="28" font-size="28">💊</text></svg>'
+      });
+    },ms);
+    toast.success(`🔔 Recordatorio de ${med.name} programado para las ${med.time}`);
+  };
 
   const workouts=data.workouts||[];
   const metrics=data.healthMetrics||{};
@@ -6244,7 +6626,7 @@ const Health = ({data,setData,isMobile,onBack}) => {
 
       {/* Tab nav */}
       <div style={{display:'flex',gap:6,marginBottom:14,flexWrap:'wrap'}}>
-        {[['trends','📈 Tendencias'],['workouts','🏃 Entrenos'],['goals','🎯 Metas']].map(([id,label])=>(
+        {[['trends','📈 Tendencias'],['workouts','🏃 Entrenos'],['goals','🎯 Metas'],['meds','💊 Medicamentos']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)}
             style={{padding:'6px 14px',borderRadius:10,border:`1px solid ${tab===id?T.green:T.border}`,background:tab===id?`${T.green}18`:'transparent',color:tab===id?T.green:T.muted,cursor:'pointer',fontSize:12,fontWeight:tab===id?700:400,fontFamily:'inherit',whiteSpace:'nowrap'}}>
             {label}
@@ -6360,6 +6742,48 @@ const Health = ({data,setData,isMobile,onBack}) => {
         </Card>
       )}
 
+      {/* ── MEDICATIONS ── */}
+      {tab==='meds'&&(
+        <div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+            <div style={{fontSize:13,fontWeight:700,color:T.text}}>💊 Mis medicamentos</div>
+            <Btn size="sm" onClick={()=>setMedModal(true)}><Icon name="plus" size={13}/>Agregar</Btn>
+          </div>
+          {meds.length===0?(
+            <Card style={{textAlign:'center',padding:'32px 20px'}}>
+              <div style={{fontSize:36,marginBottom:10}}>💊</div>
+              <div style={{color:T.muted,fontSize:14,marginBottom:12}}>Sin medicamentos registrados</div>
+              <Btn size="sm" onClick={()=>setMedModal(true)}><Icon name="plus" size={12}/>Agregar medicamento</Btn>
+            </Card>
+          ):(
+            meds.map(m=>(
+              <Card key={m.id} style={{marginBottom:10,padding:14}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:10}}>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:700,fontSize:14,color:T.text}}>{m.name}</div>
+                    <div style={{fontSize:12,color:T.muted,marginTop:3}}>
+                      {m.dose&&`${m.dose}${m.unit}`} {m.frequency&&`· ${m.frequency}`} {m.time&&`· 🕐 ${m.time}`}
+                    </div>
+                    {m.notes&&<div style={{fontSize:11,color:T.dim,marginTop:4}}>{m.notes}</div>}
+                  </div>
+                  <div style={{display:'flex',gap:6,flexShrink:0}}>
+                    <button onClick={()=>scheduleMedNotif(m)}
+                      title="Programar recordatorio de hoy"
+                      style={{background:`${T.orange}15`,border:`1px solid ${T.orange}40`,borderRadius:8,padding:'5px 10px',cursor:'pointer',fontSize:11,color:T.orange,fontFamily:'inherit',fontWeight:600}}>
+                      🔔 Recordatorio
+                    </button>
+                    <button onClick={()=>delMed(m.id)} aria-label="Eliminar medicamento"
+                      style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:4,display:'flex'}}>
+                      <Icon name="trash" size={13}/>
+                    </button>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
+
       {/* Workout modal */}
       {workoutModal&&<Modal title="Nuevo entreno" onClose={()=>setWorkoutModal(false)}>
         <div style={{display:'flex',flexDirection:'column',gap:12}}>
@@ -6385,6 +6809,26 @@ const Health = ({data,setData,isMobile,onBack}) => {
           <Input type="number" value={mForm.value} onChange={v=>setMForm(f=>({...f,value:v}))} placeholder={`Valor en ${METRIC_CFG[mForm.metric]?.unit||'unidades'}`}/>
           <Input type="date" value={mForm.date} onChange={v=>setMForm(f=>({...f,date:v}))}/>
           <Btn onClick={saveMetric} style={{width:'100%',justifyContent:'center'}}>Guardar</Btn>
+        </div>
+      </Modal>}
+      {medModal&&<Modal title="Agregar medicamento" onClose={()=>setMedModal(false)}>
+        <div style={{display:'flex',flexDirection:'column',gap:12}}>
+          <Input value={medForm.name} onChange={v=>setMedForm(f=>({...f,name:v}))} placeholder="Nombre del medicamento"/>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+            <Input value={medForm.dose} onChange={v=>setMedForm(f=>({...f,dose:v}))} placeholder="Dosis (ej: 500)" type="number"/>
+            <Select value={medForm.unit} onChange={v=>setMedForm(f=>({...f,unit:v}))}>
+              {['mg','ml','g','UI','gotas','comprimido','cápsula'].map(u=><option key={u}>{u}</option>)}
+            </Select>
+          </div>
+          <Select value={medForm.frequency} onChange={v=>setMedForm(f=>({...f,frequency:v}))}>
+            {['Diaria','Cada 8h','Cada 12h','Semanal','Mensual','Según necesidad'].map(f=><option key={f}>{f}</option>)}
+          </Select>
+          <div>
+            <label style={{fontSize:11,color:T.muted,display:'block',marginBottom:4}}>⏰ Hora del recordatorio</label>
+            <Input type="time" value={medForm.time} onChange={v=>setMedForm(f=>({...f,time:v}))}/>
+          </div>
+          <Input value={medForm.notes} onChange={v=>setMedForm(f=>({...f,notes:v}))} placeholder="Notas (p.ej: tomar con comida)"/>
+          <Btn onClick={saveMed} style={{width:'100%',justifyContent:'center'}}>💊 Guardar</Btn>
         </div>
       </Modal>}
     </div>
