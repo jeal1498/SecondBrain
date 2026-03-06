@@ -2039,7 +2039,7 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
           }}>
           {/* Ripple ring when pulsing */}
           {pulse&&<div style={{position:'absolute',inset:-2,borderRadius:'50%',border:`2px solid ${T.accent}`,animation:'psicke-ring 1.2s ease-out both',pointerEvents:'none'}}/>}
-          <Icon name="brain" size={22} color="#000"/>
+          <span style={{fontSize:26,lineHeight:1}}>🧠</span>
           <span style={{fontSize:7,fontWeight:800,color:'#000',letterSpacing:'0.05em',lineHeight:1,fontFamily:"'DM Sans',sans-serif"}}>PSICKE</span>
         </button>
       )}
@@ -4907,6 +4907,21 @@ export default function App() {
   const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
   const isMobile=useIsMobile();
 
+  // ── Emoji favicon ──
+  useEffect(()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=64; canvas.height=64;
+    const ctx=canvas.getContext('2d');
+    ctx.font='52px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('🧠',32,36);
+    const link=document.querySelector("link[rel~='icon']")||document.createElement('link');
+    link.rel='icon'; link.href=canvas.toDataURL();
+    document.head.appendChild(link);
+    document.title='Segundo Cerebro';
+  },[]);
+
   // Smart navigate: sets view + optional hint for target component
   const navigate=(v,hint=null)=>{setView(v);setViewHint(hint);};
   // Nav bar navigate: clears any hint
@@ -4974,8 +4989,8 @@ export default function App() {
         <div style={{width:220,background:T.surface,borderRight:`1px solid ${T.border}`,display:'flex',flexDirection:'column',flexShrink:0}}>
           <div style={{padding:'20px 16px 16px',borderBottom:`1px solid ${T.border}`}}>
             <div style={{display:'flex',alignItems:'center',gap:10}}>
-              <div style={{width:34,height:34,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center'}}>
-                <Icon name="brain" size={17} color="#000"/>
+              <div style={{width:34,height:34,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:9,display:'flex',alignItems:'center',justifyContent:'center',fontSize:20}}>
+                🧠
               </div>
               <div>
                 <div style={{fontFamily:"'Playfair Display',serif",fontSize:14,fontWeight:700,color:T.text,lineHeight:1}}>Segundo</div>
@@ -5015,8 +5030,8 @@ export default function App() {
       {isMobile&&(
         <div style={{background:T.surface,borderBottom:`1px solid ${T.border}`,padding:'12px 16px',display:'flex',alignItems:'center',justifyContent:'space-between',flexShrink:0}}>
           <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center'}}>
-              <Icon name="brain" size={14} color="#000"/>
+            <div style={{width:28,height:28,background:`linear-gradient(135deg,${T.accent},${T.orange})`,borderRadius:7,display:'flex',alignItems:'center',justifyContent:'center',fontSize:17}}>
+              🧠
             </div>
             <span style={{fontFamily:"'Playfair Display',serif",fontSize:15,fontWeight:700,color:T.text}}>
               Segundo <span style={{color:T.accent}}>Cerebro</span>
