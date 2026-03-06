@@ -1725,9 +1725,11 @@ const stripPsickeJson=(text)=>{
   return out.trim();
 };
 
-const Psicke=({apiKey,onGoSettings,data,setData})=>{
+const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
   const INIT_MSG={role:'assistant',content:'Aquí Psicke. ¿En qué está pensando?'};
   const [open,setOpen]=useState(false);
+  useEffect(()=>{if(openFromNav)setOpen(true);},[openFromNav]);
+  const closePanel=()=>{setOpen(false);onNavClose&&onNavClose();};
   const [msgs,setMsgs]=useState([INIT_MSG]);
   const [input,setInput]=useState('');
   const [loading,setLoading]=useState(false);
@@ -2086,9 +2088,9 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
       {/* CHAT PANEL */}
       {open&&(
         <div style={{position:'fixed',inset:0,zIndex:1000,display:'flex',flexDirection:'column',justifyContent:'flex-end'}}
-          onClick={e=>e.target===e.currentTarget&&setOpen(false)}>
+          onClick={e=>e.target===e.currentTarget&&closePanel()}>
           {/* Backdrop */}
-          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(6px)'}} onClick={()=>setOpen(false)}/>
+          <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,0.55)',backdropFilter:'blur(6px)'}} onClick={()=>closePanel()}/>
 
           {/* Panel */}
           <div style={{position:'relative',zIndex:1,background:T.surface,borderRadius:'20px 20px 0 0',border:`1px solid ${T.borderLight}`,borderBottom:'none',
@@ -2114,7 +2116,7 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
                     style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.dim,fontSize:11,fontFamily:'inherit'}}>
                     Borrar
                   </button>
-                  <button onClick={()=>setOpen(false)}
+                  <button onClick={()=>closePanel()}
                     style={{background:'none',border:'none',cursor:'pointer',color:T.muted,display:'flex',padding:4}}>
                     <Icon name="x" size={20}/>
                   </button>
@@ -2256,24 +2258,6 @@ const Psicke=({apiKey,onGoSettings,data,setData})=>{
         </div>
       )}
 
-      {/* FLOATING BUBBLE */}
-      {!open&&(
-        <button className="psicke-bubble" onClick={()=>setOpen(true)}
-          style={{
-            position:'fixed',bottom:80,right:18,zIndex:999,
-            width:54,height:54,borderRadius:'50%',border:'none',cursor:'pointer',
-            background:`linear-gradient(135deg,${T.accent},${T.orange})`,
-            display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:1,
-            boxShadow:'0 4px 20px rgba(0,200,150,0.35)',
-            transition:'transform 0.2s cubic-bezier(0.34,1.56,0.64,1)',
-            animation:pulse?'psicke-pulse 1.2s ease-out':'none',
-          }}>
-          {/* Ripple ring when pulsing */}
-          {pulse&&<div style={{position:'absolute',inset:-2,borderRadius:'50%',border:`2px solid ${T.accent}`,animation:'psicke-ring 1.2s ease-out both',pointerEvents:'none'}}/>}
-          <span style={{fontSize:26,lineHeight:1}}>🧠</span>
-          <span style={{fontSize:7,fontWeight:800,color:'#000',letterSpacing:'0.05em',lineHeight:1,fontFamily:"'DM Sans',sans-serif"}}>PSICKE</span>
-        </button>
-      )}
     </>
   );
 };
@@ -2844,7 +2828,11 @@ const NAV=[
   {id:'habits',label:'Hábitos',icon:'habit'},
   {id:'settings',label:'Config',icon:'cog'},
 ];
-const MOBILE_NAV=NAV.slice(0,5);
+const MOBILE_NAV=[
+  {id:'dashboard',label:'Inicio',icon:'home'},
+  {id:'__psicke__',label:'Psicke',icon:'brain'},
+  {id:'areas',label:'Áreas',icon:'grid'},
+];
 const MORE_NAV=NAV.slice(5);
 
 // ===================== TRABAJO EMBED =====================
@@ -5134,6 +5122,7 @@ export default function App() {
   const [viewHint,setViewHint]=useState(null);
   const [data,setData]=useState(null);
   const [showMore,setShowMore]=useState(false);
+  const [psickeOpen,setPsickeOpen]=useState(false);
   const [showSearch,setShowSearch]=useState(false);
   const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
   const isMobile=useIsMobile();
@@ -5200,7 +5189,7 @@ export default function App() {
     education:<Education {...props}/>,
     settings:<Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile}/>,
   };
-  const isMoreActive=MORE_NAV.some(n=>n.id===view);
+  
 
   return (
     <div style={{display:'flex',flexDirection:isMobile?'column':'row',height:'100dvh',width:'100%',background:T.bg,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text,overflow:'hidden',position:'fixed',inset:0}}>
@@ -5286,49 +5275,36 @@ export default function App() {
 
       {/* MOBILE BOTTOM NAV */}
       {isMobile&&(
-        <>
-          {/* More drawer */}
-          {showMore&&(
-            <div style={{position:'fixed',inset:0,zIndex:90}} onClick={()=>setShowMore(false)}>
-              <div style={{position:'absolute',bottom:65,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,padding:16,display:'flex',gap:8,flexWrap:'wrap',justifyContent:'center'}}
-                onClick={e=>e.stopPropagation()}>
-                {MORE_NAV.map(item=>(
-                  <button key={item.id} onClick={()=>{navTo(item.id);setShowMore(false);}}
-                    style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:'10px 20px',borderRadius:10,border:`1px solid ${view===item.id?T.accent:T.border}`,background:view===item.id?`${T.accent}18`:'transparent',cursor:'pointer',color:view===item.id?T.accent:T.muted,fontFamily:'inherit',minWidth:70}}>
-                    <Icon name={item.icon} size={22} color={view===item.id?T.accent:undefined}/>
-                    <span style={{fontSize:11,fontWeight:view===item.id?600:400}}>{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          <div style={{position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)'}}>
-            {MOBILE_NAV.map(item=>{
-              const active=view===item.id;
-              const badge=item.id==='inbox'&&inboxCount>0?inboxCount:null;
-              return (
-                <button key={item.id} onClick={()=>navTo(item.id)}
-                  style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:3}}>
+        <div style={{position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)'}}>
+          {MOBILE_NAV.map(item=>{
+            const isPsicke=item.id==='__psicke__';
+            const active=isPsicke?psickeOpen:(view===item.id&&!psickeOpen);
+            return (
+              <button key={item.id} onClick={()=>{
+                if(isPsicke){setPsickeOpen(true);}
+                else{setPsickeOpen(false);navTo(item.id);}
+              }}
+                style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:active?T.accent:T.dim,fontFamily:'inherit',position:'relative',gap:3}}>
+                {isPsicke?(
+                  <div style={{width:22,height:22,borderRadius:6,background:active?`linear-gradient(135deg,${T.accent},${T.orange})`:`${T.dim}33`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,transition:'all 0.2s'}}>
+                    🧠
+                  </div>
+                ):(
                   <Icon name={item.icon} size={22} color={active?T.accent:undefined}/>
-                  <span style={{fontSize:10,fontWeight:active?600:400}}>{item.label}</span>
-                  {badge&&<span style={{position:'absolute',top:6,right:'50%',marginRight:-18,background:T.red,color:'#fff',fontSize:9,fontWeight:700,padding:'1px 5px',borderRadius:10}}>{badge}</span>}
-                </button>
-              );
-            })}
-            <button onClick={()=>setShowMore(!showMore)}
-              style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'10px 4px 8px',border:'none',cursor:'pointer',background:'transparent',color:isMoreActive||showMore?T.accent:T.dim,fontFamily:'inherit',gap:3}}>
-              <Icon name="menu" size={22} color={isMoreActive||showMore?T.accent:undefined}/>
-              <span style={{fontSize:10,fontWeight:isMoreActive||showMore?600:400}}>{isMoreActive?NAV.find(n=>n.id===view)?.label:'Más'}</span>
-            </button>
-          </div>
-        </>
+                )}
+                <span style={{fontSize:10,fontWeight:active?600:400,color:active?T.accent:T.dim}}>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
       )}
 
       {/* GLOBAL SEARCH OVERLAY */}
       {showSearch&&data&&<GlobalSearch data={data} onNavigate={(v,h)=>{navigate(v,h);}} onClose={()=>setShowSearch(false)}/>}
 
-      {/* PSICKE — FLOATING BUBBLE */}
-      <Psicke apiKey={apiKey} onGoSettings={()=>navTo('settings')} data={data} setData={setData}/>
+      {/* PSICKE — nav-controlled, no floating bubble */}
+      <Psicke apiKey={apiKey} onGoSettings={()=>navTo('settings')} data={data} setData={setData}
+        openFromNav={psickeOpen} onNavClose={()=>setPsickeOpen(false)}/>
 
     </div>
   );
