@@ -3755,6 +3755,13 @@ const buildPsickePrompt=(data)=>{
     return `• ${t.title} [${proj?.name||'?'}]`;
   }).join('\n');
 
+  // ── Coche ──
+  const _carInfo=data.carInfo||{};
+  const carInfoStr=_carInfo.brand?`${_carInfo.brand} ${_carInfo.model||''} ${_carInfo.year||''} · ${_carInfo.plate||''} · ${_carInfo.km||'?'} km`:'Sin datos del coche';
+  const carMaintStr=(data.carMaintenances||[]).slice(0,5).map(m=>`• ${m.name} — último: ${m.lastDone||'nunca'}, cada ${m.frequencyDays||'?'}d / ${m.frequencyKm||'?'} km, costo: $${m.cost||0}`).join('\n');
+  const carExpStr=(data.carExpenses||[]).slice(0,4).map(e=>`• ${e.concept}: $${e.amount} (${e.date||''})`).join('\n');
+  const farmaciaStr=(data.farmaciaItems||[]).map(f=>`• ${f.name}: ${f.quantity} ${f.unit}${f.expiresAt?' vence '+f.expiresAt:''}`).join('\n');
+
   return `Eres Psicke — la IA que vive dentro del Segundo Cerebro del usuario. No eres un chatbot genérico; eres SU extensión mental.
 
 HOY: ${t}
@@ -3828,12 +3835,12 @@ ${homeDocs||'(sin documentos)'}
 ── COCHE ──
 Datos: ${carInfoStr}
 Mantenimientos coche:
-${carMaintenances||'(sin mantenimientos)'}
+${carMaintStr||'(sin mantenimientos)'}
 Gastos coche recientes:
-${carExpenses||'(sin gastos)'}
+${carExpStr||'(sin gastos)'}
 
 ── FARMACIA / BOTIQUÍN ──
-${farmaciaItems||'(botiquín vacío)'}
+${farmaciaStr||'(botiquín vacío)'}
 ── DESARROLLO PERSONAL ──
 Aprendizajes activos:
 ${learnings||'(sin aprendizajes)'}
