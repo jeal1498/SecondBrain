@@ -8805,12 +8805,12 @@ self.addEventListener('fetch',e=>{
   const inboxCount=data.inbox.filter(i=>!i.processed).length;
   const props={data,setData,isMobile};
 
-  // ── Lazy view renderer: only instantiates the active view ──
-  // This prevents creating 18+ React elements on every render tick.
-  const activeView = useMemo(()=>{
+  const consumeHint = useCallback(()=>setViewHint(null),[]);
+  const backToDashboard = useCallback(()=>navTo('dashboard'),[]);
+
+  // ── View renderer ──
+  const renderView = () => {
     const p=props;
-    const back=()=>navTo('dashboard');
-    const consumeHint=()=>setViewHint(null);
     switch(view){
       case 'dashboard':    return <Dashboard {...p} onNavigate={navigate}/>;
       case 'areas':        return <Areas data={data} isMobile={isMobile} onNavigate={navigate}/>;
@@ -8818,26 +8818,25 @@ self.addEventListener('fetch',e=>{
       case 'objectives':   return <Objectives {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate}/>;
       case 'projects':     return <ProjectsAndTasks {...p} viewHint={viewHint} onConsumeHint={consumeHint} onNavigate={navigate}/>;
       case 'notes':        return <Notes {...p} viewHint={viewHint} onConsumeHint={consumeHint}/>;
-      case 'finance':      return <Finance {...p} onBack={back}/>;
+      case 'finance':      return <Finance {...p} onBack={backToDashboard}/>;
       case 'inbox':        return <Inbox {...p}/>;
       case 'habits':       return <HabitTracker {...p}/>;
       case 'journal':      return <Journal {...p}/>;
       case 'books':        return <Books {...p}/>;
       case 'shopping':     return <Shopping {...p}/>;
       case 'education':    return <Education {...p}/>;
-      case 'health':       return <Health {...p} onBack={back}/>;
-      case 'relaciones':   return <Relaciones {...p} onBack={back}/>;
-      case 'sideprojects': return <SideProjects {...p} onBack={back}/>;
-      case 'desarrollo':   return <DesarrolloPersonal {...p} onBack={back}/>;
-      case 'hogar':        return <Hogar {...p} onBack={back}/>;
+      case 'health':       return <Health {...p} onBack={backToDashboard}/>;
+      case 'relaciones':   return <Relaciones {...p} onBack={backToDashboard}/>;
+      case 'sideprojects': return <SideProjects {...p} onBack={backToDashboard}/>;
+      case 'desarrollo':   return <DesarrolloPersonal {...p} onBack={backToDashboard}/>;
+      case 'hogar':        return <Hogar {...p} onBack={backToDashboard}/>;
       case 'settings':     return <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData} viewHint={viewHint} onConsumeHint={consumeHint}/>;
       default:             return null;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[view, data, setData, isMobile, viewHint, apiKey, setApiKey]);
+  };
 
   // Keep legacy alias so nothing downstream breaks
-  const views = { [view]: activeView };
+  const views = { [view]: renderView() };
   
 
   return (
