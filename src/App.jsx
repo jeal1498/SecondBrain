@@ -415,6 +415,9 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
     side_project:{label:'🚀 Side Project',color:'#ff5069',nav:'sideProjects'},
     sp_tarea:{label:'📌 SP Tarea',color:'#ff8c42',nav:'sideProjects'},
     compra:{label:'🛒 Compra',color:'#ffd166',nav:'shopping'},
+    metrica_salud:{label:'📊 Métrica',color:'#00c896',nav:'health'},
+    medicamento:{label:'💊 Medicamento',color:'#ff8c42',nav:'health'},
+    diario:{label:'📔 Diario',color:'#a78bfa',nav:'journal'},
   };
 
   const ql=q.toLowerCase().trim();
@@ -433,27 +436,32 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
       return res;
     }
     const res=[];
-    const push=(type,label,sub,hint,raw='')=>{
+    const push=(type,label,sub,hint,raw='',preview=null)=>{
       if(label.toLowerCase().includes(ql)||sub.toLowerCase().includes(ql)||raw.toLowerCase().includes(ql))
-        res.push({type,label,sub,hint});
+        res.push({type,label,sub,hint,preview});
     };
-    (data.notes||[]).forEach(n=>push('nota',n.title,n.content.slice(0,80),'notes:'+n.id,n.tags?.join(' ')||''));
-    (data.tasks||[]).forEach(t=>push('tarea',t.title,t.status==='done'?'Completada':'Pendiente','projects'));
-    (data.objectives||[]).forEach(o=>push('objetivo',o.title,o.status==='active'?'Activo':'Completado','objectives'));
-    (data.projects||[]).forEach(p=>push('proyecto',p.title,'','projects'));
-    (data.habits||[]).forEach(h=>push('habito',h.name,h.frequency==='daily'?'Diario':h.frequency==='weekly'?'Semanal':'Mensual','habits'));
-    (data.people||[]).forEach(p=>push('persona',p.name,p.relation||'','relaciones'));
-    (data.transactions||[]).forEach(t=>push('transaccion',t.description,`${t.type==='ingreso'?'+':'-'}$${t.amount} · ${t.date}`,'finance',t.category||''));
-    (data.workouts||[]).forEach(w=>push('workout',`${w.type} · ${w.date}`,`${w.duration}min${w.calories?' · '+w.calories+'kcal':''}`,'health'));
-    (data.books||[]).forEach(b=>push('libro',b.title,b.author||'','books'));
-    (data.learnings||[]).forEach(l=>push('aprendizaje',l.title,l.platform||'','desarrollo'));
-    (data.ideas||[]).forEach(i=>push('idea',i.content.slice(0,60),i.tag||'','desarrollo'));
-    (data.maintenances||[]).forEach(m=>push('mantenimiento',m.name,m.category||'','hogar',m.notes||''));
-    (data.homeDocs||[]).forEach(d=>push('documento',d.name,d.category||'','hogar',d.provider||''));
-    (data.homeContacts||[]).forEach(c=>push('contacto_hogar',c.name,c.role||'','hogar',c.phone||''));
-    (data.sideProjects||[]).forEach(p=>push('side_project',p.name,p.description?.slice(0,60)||p.stack||'','sideProjects',p.url||''));
+    (data.notes||[]).forEach(n=>push('nota',n.title,n.content.slice(0,80),'notes:'+n.id,n.tags?.join(' ')||'',{content:n.content?.slice(0,200),tags:n.tags,date:n.createdAt}));
+    (data.tasks||[]).forEach(t=>push('tarea',t.title,t.status==='done'?'Completada':'Pendiente','projects','',{status:t.status,priority:t.priority,dueDate:t.dueDate,subtasks:(t.subtasks||[]).length}));
+    (data.objectives||[]).forEach(o=>push('objetivo',o.title,o.status==='active'?'Activo':'Completado','objectives','',{status:o.status,deadline:o.deadline,milestones:(o.milestones||[]).length,completedAt:o.completedAt}));
+    (data.projects||[]).forEach(p=>push('proyecto',p.title,'','projects','',{taskCount:(data.tasks||[]).filter(t=>t.projectId===p.id).length}));
+    (data.habits||[]).forEach(h=>push('habito',h.name,h.frequency==='daily'?'Diario':h.frequency==='weekly'?'Semanal':'Mensual','habits','',{frequency:h.frequency,totalCompletions:h.completions?.length||0}));
+    (data.people||[]).forEach(p=>push('persona',p.name,p.relation||'','relaciones','',{relation:p.relation,birthday:p.birthday,phone:p.phone}));
+    (data.transactions||[]).forEach(t=>push('transaccion',t.description,`${t.type==='ingreso'?'+':'-'}$${t.amount} · ${t.date}`,'finance',t.category||'',{type:t.type,amount:t.amount,category:t.category,date:t.date}));
+    (data.workouts||[]).forEach(w=>push('workout',`${w.type} · ${w.date}`,`${w.duration}min${w.calories?' · '+w.calories+'kcal':''}`,'health','',{duration:w.duration,calories:w.calories,distance:w.distance}));
+    (data.books||[]).forEach(b=>push('libro',b.title,b.author||'','books','',{author:b.author,status:b.status,rating:b.rating}));
+    (data.learnings||[]).forEach(l=>push('aprendizaje',l.title,l.platform||'','desarrollo','',{platform:l.platform,progress:l.progress,hoursSpent:l.hoursSpent}));
+    (data.ideas||[]).forEach(i=>push('idea',i.content.slice(0,60),i.tag||'','desarrollo','',{content:i.content,tag:i.tag}));
+    (data.maintenances||[]).forEach(m=>push('mantenimiento',m.name,m.category||'','hogar',m.notes||'',{category:m.category,lastDone:m.lastDone}));
+    (data.homeDocs||[]).forEach(d=>push('documento',d.name,d.category||'','hogar',d.provider||'',{category:d.category,expiryDate:d.expiryDate,provider:d.provider}));
+    (data.homeContacts||[]).forEach(c=>push('contacto_hogar',c.name,c.role||'','hogar',c.phone||'',{role:c.role,phone:c.phone}));
+    (data.sideProjects||[]).forEach(p=>push('side_project',p.name,p.description?.slice(0,60)||p.stack||'','sideProjects',p.url||'',{stack:p.stack,status:p.status,url:p.url}));
     (data.spTasks||[]).forEach(t=>push('sp_tarea',t.title,t.projectName||'','sideProjects',t.status||''));
     (data.shopping||[]).forEach(s=>push('compra',s.name,s.category||'','shopping',s.notes||''));
+    Object.entries(data.healthMetrics||{}).forEach(([metricType,entries])=>{
+      (entries||[]).forEach(e=>push('metrica_salud',`${metricType}: ${e.value}`,`${e.date}`,'health',metricType));
+    });
+    (data.medications||[]).forEach(m=>push('medicamento',m.name,`${m.dose||''}${m.unit||''} · ${m.frequency||''}`,'health',m.notes||'',{dose:m.dose,unit:m.unit,frequency:m.frequency,time:m.time}));
+    (data.journal||[]).forEach(j=>push('diario',`📔 ${j.date}`,j.content?.slice(0,80)||'','journal',j.mood||'',{content:j.content?.slice(0,200),mood:j.mood}));
     return res;
   };
 
@@ -583,10 +591,49 @@ const GlobalSearch = ({data,onNavigate,onClose}) => {
                         <span style={{color:T.dim,fontSize:11,flexShrink:0}}>{isExp?'▲':'▼'}</span>
                       </div>
                       {isExp&&(
-                        <div style={{padding:'10px 16px 12px',borderBottom:`1px solid ${T.border}`,background:T.surface2,display:'flex',gap:8}}>
+                        <div style={{padding:'10px 16px 12px',borderBottom:`1px solid ${T.border}`,background:T.surface2}}>
+                          {/* Preview content */}
+                          {r.preview&&(
+                            <div style={{marginBottom:10,display:'flex',flexWrap:'wrap',gap:6,fontSize:11,color:T.muted}}>
+                              {r.preview.content&&<div style={{width:'100%',color:T.text,fontSize:12,lineHeight:1.5,marginBottom:4,borderLeft:`2px solid ${meta.color}`,paddingLeft:10}}>{r.preview.content}</div>}
+                              {r.preview.tags&&r.preview.tags.length>0&&r.preview.tags.map(tag=><span key={tag} style={{background:`${T.purple}15`,color:T.purple,padding:'1px 7px',borderRadius:6,fontSize:10}}>#{tag}</span>)}
+                              {r.preview.date&&<span>📅 {r.preview.date}</span>}
+                              {r.preview.status&&<span style={{color:r.preview.status==='done'?T.green:T.orange,fontWeight:600}}>{r.preview.status==='done'?'✅ Hecha':'⏳ Pendiente'}</span>}
+                              {r.preview.priority&&<span style={{color:r.preview.priority==='alta'?T.red:r.preview.priority==='media'?T.orange:T.accent}}>● {r.preview.priority}</span>}
+                              {r.preview.dueDate&&<span>📅 Vence: {r.preview.dueDate}</span>}
+                              {r.preview.subtasks>0&&<span>📋 {r.preview.subtasks} subtareas</span>}
+                              {r.preview.deadline&&<span>🎯 Fecha límite: {r.preview.deadline}</span>}
+                              {r.preview.milestones>0&&<span>🏁 {r.preview.milestones} milestones</span>}
+                              {r.preview.completedAt&&<span style={{color:T.green}}>✅ Completado: {r.preview.completedAt}</span>}
+                              {r.preview.taskCount!=null&&<span>📁 {r.preview.taskCount} tareas</span>}
+                              {r.preview.totalCompletions>0&&<span>🔥 {r.preview.totalCompletions} días completados</span>}
+                              {r.preview.relation&&<span>👤 {r.preview.relation}</span>}
+                              {r.preview.birthday&&<span>🎂 {r.preview.birthday}</span>}
+                              {r.preview.phone&&<span>📱 {r.preview.phone}</span>}
+                              {r.preview.amount&&<span style={{color:r.preview.type==='ingreso'?T.green:T.red,fontWeight:700}}>{r.preview.type==='ingreso'?'+':'-'}${Number(r.preview.amount).toLocaleString()}</span>}
+                              {r.preview.category&&<span>🏷 {r.preview.category}</span>}
+                              {r.preview.duration&&<span>⏱ {r.preview.duration}min</span>}
+                              {r.preview.calories>0&&<span>🔥 {r.preview.calories}kcal</span>}
+                              {r.preview.distance&&<span>📏 {r.preview.distance}</span>}
+                              {r.preview.author&&<span>✍️ {r.preview.author}</span>}
+                              {r.preview.rating>0&&<span>{'⭐'.repeat(r.preview.rating)}</span>}
+                              {r.preview.platform&&<span>📺 {r.preview.platform}</span>}
+                              {r.preview.progress!=null&&<span>📊 {r.preview.progress}%</span>}
+                              {r.preview.hoursSpent>0&&<span>⏱ {r.preview.hoursSpent}h</span>}
+                              {r.preview.stack&&<span>🛠 {r.preview.stack}</span>}
+                              {r.preview.url&&<span style={{color:T.blue}}>🔗 {r.preview.url.slice(0,30)}</span>}
+                              {r.preview.expiryDate&&<span>📅 Vence: {r.preview.expiryDate}</span>}
+                              {r.preview.provider&&<span>🏢 {r.preview.provider}</span>}
+                              {r.preview.role&&<span>👷 {r.preview.role}</span>}
+                              {r.preview.dose&&<span>💊 {r.preview.dose}{r.preview.unit} · {r.preview.frequency}</span>}
+                              {r.preview.time&&<span>⏰ {r.preview.time}</span>}
+                              {r.preview.mood&&<span>{r.preview.mood}</span>}
+                              {r.preview.lastDone&&<span>🔧 Último: {r.preview.lastDone}</span>}
+                            </div>
+                          )}
                           <button onClick={()=>handleSelect(r)}
                             style={{padding:'6px 16px',borderRadius:9,border:`1px solid ${meta.color}`,background:`${meta.color}15`,color:meta.color,cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:600}}>
-                            Abrir en {meta.label.replace(/[^\w ]/g,'').trim()} →
+                            Abrir →
                           </button>
                         </div>
                       )}
@@ -1144,9 +1191,11 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
   };
   const getTaskPct=(o)=>{
     const relProj=data.projects.filter(p=>p.objectiveId===o.id);
-    const tasks=data.tasks.filter(t=>relProj.some(p=>p.id===t.projectId));
-    if(!tasks.length)return null;
-    return Math.round(tasks.filter(t=>t.status==='done').length/tasks.length*100);
+    const projTasks=data.tasks.filter(t=>relProj.some(p=>p.id===t.projectId));
+    const directTasks=data.tasks.filter(t=>t.objectiveId===o.id);
+    const allTasks=[...projTasks,...directTasks.filter(dt=>!projTasks.some(pt=>pt.id===dt.id))];
+    if(!allTasks.length)return null;
+    return Math.round(allTasks.filter(t=>t.status==='done').length/allTasks.length*100);
   };
   const getPct=(o)=>{const a=getMsPct(o);const b=getTaskPct(o);return a!==null?a:b!==null?b:0;};
 
@@ -1169,7 +1218,7 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
         </div>
         <div style={{display:'flex',gap:6,alignItems:'center'}}>
           <div style={{display:'flex',gap:3,background:T.surface2,borderRadius:9,padding:3}}>
-            {[['list','☰'],['tree','🌳']].map(([v,l])=>(
+            {[['list','☰'],['tree','🌳'],['done','✅']].map(([v,l])=>(
               <button key={v} onClick={()=>setView(v)}
                 style={{padding:'4px 10px',borderRadius:6,border:'none',background:view===v?T.accent:'transparent',color:view===v?'#000':T.muted,cursor:'pointer',fontSize:12,fontFamily:'inherit',fontWeight:view===v?700:400}}>
                 {l}
@@ -1353,6 +1402,82 @@ const Objectives = ({data,setData,isMobile,viewHint,onConsumeHint,onNavigate}) =
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {/* COMPLETED HISTORY VIEW */}
+      {view==='done'&&(
+        <div>
+          {(()=>{
+            const doneObjs=[...allObj.filter(o=>o.status==='done')].sort((a,b)=>(b.completedAt||'').localeCompare(a.completedAt||''));
+            if(!doneObjs.length) return (
+              <div style={{textAlign:'center',padding:'40px 0',color:T.dim}}>
+                <div style={{fontSize:40,marginBottom:8}}>🏆</div>
+                <p style={{fontSize:14,marginBottom:4}}>Sin objetivos completados aún</p>
+                <p style={{fontSize:12,color:T.dim}}>Cuando completes un objetivo aparecerá aquí con su fecha y milestones.</p>
+              </div>
+            );
+            // Group by month
+            const byMonth={};
+            doneObjs.forEach(o=>{
+              const key=o.completedAt?o.completedAt.slice(0,7):'sin-fecha';
+              if(!byMonth[key])byMonth[key]=[];
+              byMonth[key].push(o);
+            });
+            return Object.entries(byMonth).map(([month,objs])=>(
+              <div key={month} style={{marginBottom:20}}>
+                <h3 style={{color:T.muted,fontSize:11,fontWeight:600,textTransform:'uppercase',letterSpacing:1,marginBottom:10}}>
+                  {month==='sin-fecha'?'Sin fecha':new Date(month+'-01').toLocaleDateString('es-ES',{month:'long',year:'numeric'})}
+                </h3>
+                {objs.map(o=>{
+                  const area=data.areas.find(a=>a.id===o.areaId);
+                  const ms=o.milestones||[];
+                  const checkins=o.checkins||[];
+                  const pct=getPct(o);
+                  const relProj=data.projects.filter(p=>p.objectiveId===o.id);
+                  const directTasks=data.tasks.filter(t=>t.objectiveId===o.id);
+                  const totalTasks=relProj.reduce((s,p)=>s+data.tasks.filter(t=>t.projectId===p.id).length,0)+directTasks.length;
+                  return (
+                    <Card key={o.id} style={{marginBottom:8,borderLeft:`3px solid ${area?.color||T.green}`}}>
+                      <div style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                        <div style={{width:28,height:28,borderRadius:'50%',background:T.green,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                          <span style={{color:'#000',fontSize:13,fontWeight:900}}>✓</span>
+                        </div>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{color:T.text,fontWeight:600,fontSize:14,marginBottom:4}}>{o.title}</div>
+                          <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',fontSize:11}}>
+                            {area&&<span style={{color:area.color,fontWeight:600}}>{area.icon} {area.name}</span>}
+                            {o.completedAt&&<span style={{color:T.green,fontWeight:600}}>✅ {fmt(o.completedAt)}</span>}
+                            {o.deadline&&<span style={{color:T.muted}}>📅 Meta: {fmt(o.deadline)}</span>}
+                            {ms.length>0&&<span style={{color:T.accent}}>🏁 {ms.filter(m=>m.done).length}/{ms.length} milestones</span>}
+                            {totalTasks>0&&<span style={{color:T.muted}}>📋 {totalTasks} tareas</span>}
+                            {relProj.length>0&&<span style={{color:T.blue}}>📁 {relProj.length} proyectos</span>}
+                            {checkins.length>0&&<span style={{color:T.muted}}>📝 {checkins.length} check-ins</span>}
+                          </div>
+                          {/* Show milestone list if any */}
+                          {ms.length>0&&(
+                            <div style={{marginTop:8,display:'flex',flexDirection:'column',gap:3}}>
+                              {ms.slice(0,4).map(m=>(
+                                <div key={m.id} style={{display:'flex',alignItems:'center',gap:6,fontSize:11}}>
+                                  <span style={{color:m.done?T.accent:T.dim}}>{m.done?'✓':'○'}</span>
+                                  <span style={{color:m.done?T.muted:T.dim,textDecoration:m.done?'line-through':'none'}}>{m.text}</span>
+                                </div>
+                              ))}
+                              {ms.length>4&&<span style={{fontSize:10,color:T.dim}}>+{ms.length-4} más</span>}
+                            </div>
+                          )}
+                        </div>
+                        <button onClick={()=>toggle(o.id)} title="Reactivar objetivo"
+                          style={{background:'none',border:`1px solid ${T.border}`,borderRadius:7,padding:'3px 8px',cursor:'pointer',color:T.muted,fontSize:10,fontFamily:'inherit',flexShrink:0}}>
+                          ↩ Reactivar
+                        </button>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            ));
+          })()}
         </div>
       )}
 
@@ -6042,20 +6167,35 @@ const DesarrolloPersonal = ({data,setData,isMobile,onBack}) => {
             <Btn size="sm" onClick={()=>setModal(true)}><Icon name="plus" size={12}/>Agregar</Btn>
           </div>
           {/* Hours bar chart */}
-          {learnings.length>1&&(
+          {learnings.length>0&&(
             <Card style={{marginBottom:14,padding:16}}>
-              <div style={{fontSize:13,fontWeight:600,color:T.text,marginBottom:12}}>Horas dedicadas por curso</div>
-              <div style={{display:'flex',gap:6,alignItems:'flex-end',height:64}}>
+              <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:14}}>
+                <div style={{fontSize:13,fontWeight:600,color:T.text}}>📊 Horas dedicadas por curso</div>
+                <div style={{fontSize:11,color:T.muted}}>
+                  Total: <strong style={{color:T.accent}}>{learnings.reduce((s,l)=>s+(l.hoursSpent||0),0).toFixed(1)}h</strong>
+                  {' / '}{learnings.reduce((s,l)=>s+(l.hoursTotal||0),0)}h
+                </div>
+              </div>
+              {/* Horizontal bars with labels */}
+              <div style={{display:'flex',flexDirection:'column',gap:8}}>
                 {learnings.map((l,i)=>{
-                  const h=Math.max(((l.hoursSpent||0)/maxHours)*54,l.hoursSpent>0?4:0);
                   const color=lColor(l,i);
-                  const isSel=selCourse===l.id;
+                  const spent=l.hoursSpent||0;
+                  const total=l.hoursTotal||1;
+                  const pct=Math.min(Math.round((spent/total)*100),100);
+                  const barW=maxHours>0?Math.max((spent/maxHours)*100,spent>0?4:0):0;
                   return (
-                    <div key={l.id} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:3,cursor:'pointer'}}
-                      onClick={()=>setSelCourse(isSel?null:l.id)}>
-                      <div style={{width:'100%',height:h,background:isSel?color:`${color}55`,borderRadius:'4px 4px 0 0',transition:'all 0.3s'}}
-                        title={`${l.title}: ${l.hoursSpent||0}h`}/>
-                      <span style={{fontSize:8,color:isSel?color:T.dim,textAlign:'center',lineHeight:1.2}}>{l.hoursSpent||0}h</span>
+                    <div key={l.id} style={{cursor:'pointer'}} onClick={()=>setSelCourse(selCourse===l.id?null:l.id)}>
+                      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:3}}>
+                        <span style={{fontSize:12,color:selCourse===l.id?color:T.text,fontWeight:selCourse===l.id?700:500,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',maxWidth:'60%'}}>{l.title}</span>
+                        <div style={{display:'flex',gap:8,alignItems:'center',flexShrink:0}}>
+                          <span style={{fontSize:11,color:T.muted}}>{spent.toFixed(1)}h / {total}h</span>
+                          <span style={{fontSize:10,fontWeight:700,color:pct>=100?T.green:pct>=50?color:T.muted,background:pct>=100?`${T.green}15`:`${color}12`,padding:'1px 7px',borderRadius:6}}>{pct}%</span>
+                        </div>
+                      </div>
+                      <div style={{height:8,background:T.border,borderRadius:4,overflow:'hidden'}}>
+                        <div style={{height:'100%',width:`${barW}%`,background:selCourse===l.id?color:`${color}88`,borderRadius:4,transition:'all 0.4s'}}/>
+                      </div>
                     </div>
                   );
                 })}
@@ -6177,31 +6317,57 @@ const DesarrolloPersonal = ({data,setData,isMobile,onBack}) => {
             <div style={{display:'flex',gap:4,flexWrap:'wrap'}}>
               <button onClick={()=>setIdeaFilter('all')}
                 style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${ideaFilter==='all'?T.purple:T.border}`,background:ideaFilter==='all'?`${T.purple}18`:'transparent',color:ideaFilter==='all'?T.purple:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
-                Todas
+                Todas ({ideas.length})
               </button>
-              {uniqueTags.map(t=>(
-                <button key={t} onClick={()=>setIdeaFilter(ideaFilter===t?'all':t)}
-                  style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${ideaFilter===t?T.purple:T.border}`,background:ideaFilter===t?`${T.purple}18`:'transparent',color:ideaFilter===t?T.purple:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
-                  {t}
-                </button>
-              ))}
+              {uniqueTags.map(t=>{
+                const cnt=ideas.filter(i=>i.tag===t).length;
+                return (
+                  <button key={t} onClick={()=>setIdeaFilter(ideaFilter===t?'all':t)}
+                    style={{padding:'4px 12px',borderRadius:8,border:`1px solid ${ideaFilter===t?T.purple:T.border}`,background:ideaFilter===t?`${T.purple}18`:'transparent',color:ideaFilter===t?T.purple:T.muted,cursor:'pointer',fontSize:11,fontFamily:'inherit'}}>
+                    {t} ({cnt})
+                  </button>
+                );
+              })}
             </div>
             <Btn size="sm" onClick={()=>setIdeaModal(true)}><Icon name="plus" size={12}/>Idea</Btn>
           </div>
-          <div style={{columns:isMobile?1:2,gap:10,columnFill:'balance'}}>
-            {filteredIdeas.map(idea=>{
+          {/* Moodboard grid */}
+          <div style={{columns:isMobile?1:2,gap:12,columnFill:'balance'}}>
+            {filteredIdeas.map((idea,idx)=>{
               const tagColors={'💡 Idea':T.blue,'✍️ Escritura':T.purple,'🎓 Educación':T.orange,'📋 Plantilla':T.accent,'🚀 Proyecto':T.red,'🔧 Herramienta':T.yellow};
               const color=tagColors[idea.tag]||T.blue;
+              const isLong=idea.content.length>120;
+              const isShort=idea.content.length<40;
+              const tagEmoji=idea.tag.split(' ')[0];
               return (
-                <div key={idea.id} style={{breakInside:'avoid',marginBottom:10,background:T.surface,border:`1.5px solid ${color}35`,borderLeft:`3px solid ${color}`,borderRadius:12,padding:'13px 14px',position:'relative'}}>
-                  <div style={{fontSize:10,fontWeight:700,color,background:`${color}15`,display:'inline-block',padding:'2px 8px',borderRadius:6,marginBottom:7}}>{idea.tag}</div>
-                  <p style={{fontSize:13,color:T.text,margin:0,lineHeight:1.6}}>{idea.content}</p>
-                  <button onClick={()=>delIdea(idea.id)} style={{position:'absolute',top:10,right:10,background:'none',border:'none',color:T.dim,cursor:'pointer',padding:2}}><Icon name="trash" size={11}/></button>
+                <div key={idea.id} style={{
+                  breakInside:'avoid',marginBottom:12,
+                  background:`linear-gradient(135deg, ${color}08, ${color}04)`,
+                  border:`1.5px solid ${color}30`,
+                  borderRadius:16,
+                  padding:isShort?'16px 18px':'18px 18px 14px',
+                  position:'relative',
+                  overflow:'hidden',
+                }}>
+                  {/* Decorative bg emoji */}
+                  <div style={{position:'absolute',top:-8,right:-8,fontSize:isLong?64:48,opacity:0.06,pointerEvents:'none',lineHeight:1}}>{tagEmoji}</div>
+                  {/* Tag + date header */}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:isShort?6:10,position:'relative',zIndex:1}}>
+                    <span style={{fontSize:11,fontWeight:700,color,background:`${color}18`,padding:'3px 10px',borderRadius:8}}>{idea.tag}</span>
+                    <div style={{display:'flex',gap:6,alignItems:'center'}}>
+                      {idea.createdAt&&<span style={{fontSize:9,color:T.dim}}>{fmt(idea.createdAt)}</span>}
+                      <button onClick={()=>delIdea(idea.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:2,display:'flex'}}><Icon name="trash" size={11}/></button>
+                    </div>
+                  </div>
+                  {/* Content */}
+                  <p style={{fontSize:isShort?15:13,color:T.text,margin:0,lineHeight:1.65,position:'relative',zIndex:1,fontWeight:isShort?600:400}}>{idea.content}</p>
+                  {/* Bottom accent bar */}
+                  <div style={{height:2,background:`linear-gradient(90deg, ${color}60, transparent)`,borderRadius:2,marginTop:isShort?8:12}}/>
                 </div>
               );
             })}
           </div>
-          {!filteredIdeas.length&&<div style={{textAlign:'center',padding:'30px 0',color:T.dim}}><p style={{fontSize:14}}>Sin ideas aún — ¡captura todo!</p><Btn size="sm" onClick={()=>setIdeaModal(true)} style={{marginTop:8}}><Icon name="plus" size={12}/>Nueva idea</Btn></div>}
+          {!filteredIdeas.length&&<div style={{textAlign:'center',padding:'30px 0',color:T.dim}}><div style={{fontSize:48,marginBottom:10}}>💡</div><p style={{fontSize:14,marginBottom:4}}>Sin ideas aún — ¡captura todo!</p><p style={{fontSize:12,color:T.dim}}>Las ideas son semillas: captura rápido, clasifica después.</p><Btn size="sm" onClick={()=>setIdeaModal(true)} style={{marginTop:12}}><Icon name="plus" size={12}/>Nueva idea</Btn></div>}
           {ideaModal&&<Modal title="Nueva idea" onClose={()=>setIdeaModal(false)}>
             <div style={{display:'flex',flexDirection:'column',gap:12}}>
               <Textarea value={ideaForm.content} onChange={v=>setIdeaForm(f=>({...f,content:v}))} placeholder="¿Qué tienes en mente?" rows={4}/>
@@ -7879,11 +8045,7 @@ export default function App() {
     })();
   },[]);
 
-  if(!data) return (
-    <div style={{background:T.bg,height:'100vh',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',color:T.muted,fontFamily:'system-ui',gap:16}}>
-      <div style={{fontSize:48}}>🧠</div><div>Cargando tu Segundo Cerebro...</div>
-    </div>
-  );
+  if(!data) return null; // Loading screen disabled
 
   const inboxCount=data.inbox.filter(i=>!i.processed).length;
   const props={data,setData,isMobile};
