@@ -14,8 +14,9 @@ const T = {
 
 // ===================== RESPONSIVE HOOK =====================
 const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [isMobile, setIsMobile] = useState(false); // safe SSR default
   useEffect(() => {
+    setIsMobile(window.innerWidth < 768); // read window only on client
     const handler = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handler);
     return () => window.removeEventListener('resize', handler);
