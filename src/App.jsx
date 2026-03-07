@@ -2491,6 +2491,10 @@ const HabitTracker = ({data,setData,isMobile}) => {
   const weekTotal=data.habits.reduce((s,h)=>s+weekDates.filter(d=>h.completions.includes(d)).length,0);
   const weekPossible=dailyHabits.length*7;
   const weekPct=weekPossible?Math.round(weekTotal/weekPossible*100):0;
+  // % últimas 4 semanas (28 días) — solo hábitos diarios
+  const month28Total=dailyHabits.reduce((s,h)=>s+last28.filter(d=>h.completions.includes(d)).length,0);
+  const month28Possible=dailyHabits.length*28;
+  const month28Pct=month28Possible?Math.round(month28Total/month28Possible*100):0;
   const allStreaks=data.habits.map(h=>({id:h.id,streak:computeStreak(h),maxStreak:computeMaxStreak(h)}));
   const bestStreak=allStreaks.reduce((max,s)=>s.streak>max?s.streak:max,0);
 
@@ -2515,7 +2519,7 @@ const HabitTracker = ({data,setData,isMobile}) => {
 
       {/* ── Stats ── */}
       {data.habits.length>0&&(
-        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10,marginBottom:16}}>
+        <div style={{display:'grid',gridTemplateColumns:isMobile?'1fr 1fr':'repeat(4,1fr)',gap:10,marginBottom:16}}>
           <Card style={{textAlign:'center',padding:isMobile?10:14}}>
             <div style={{fontSize:10,color:T.muted,marginBottom:4}}>Hoy</div>
             <div style={{fontSize:isMobile?20:24,fontWeight:700,color:todayPct===100?T.green:todayPct>50?T.accent:T.text}}>{todayDone}/{todayTotal}</div>
@@ -2532,6 +2536,13 @@ const HabitTracker = ({data,setData,isMobile}) => {
             <div style={{fontSize:isMobile?20:24,fontWeight:700,color:weekPct>=80?T.green:weekPct>=50?T.accent:T.text}}>{weekPct}%</div>
             <div style={{height:3,background:T.border,borderRadius:2,marginTop:6}}>
               <div style={{height:'100%',width:`${weekPct}%`,background:weekPct>=80?T.green:T.accent,borderRadius:2,transition:'width 0.3s'}}/>
+            </div>
+          </Card>
+          <Card style={{textAlign:'center',padding:isMobile?10:14}}>
+            <div style={{fontSize:10,color:T.muted,marginBottom:4}}>Últimas 4 sem.</div>
+            <div style={{fontSize:isMobile?20:24,fontWeight:700,color:month28Pct>=80?T.green:month28Pct>=50?T.accent:T.red}}>{month28Pct}%</div>
+            <div style={{height:3,background:T.border,borderRadius:2,marginTop:6}}>
+              <div style={{height:'100%',width:`${month28Pct}%`,background:month28Pct>=80?T.green:month28Pct>=50?T.accent:T.red,borderRadius:2,transition:'width 0.3s'}}/>
             </div>
           </Card>
         </div>
