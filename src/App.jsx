@@ -7085,7 +7085,7 @@ const DesarrolloPersonal = ({data,setData,isMobile,onBack}) => {
 
 // ===================== HOGAR =====================
 // ===================== COCHE =====================
-const Coche = ({data,setData,isMobile,onBack}) => {
+const Coche = ({data,setData,isMobile,onBack,embedded=false}) => {
   const [tab,setTab]     = useState('resumen');
   const [modalMaint,setModalMaint]   = useState(false);
   const [modalExp,setModalExp]       = useState(false);
@@ -7222,7 +7222,7 @@ const Coche = ({data,setData,isMobile,onBack}) => {
 
   return (
     <div>
-      <PageHeader isMobile={isMobile} title="🚗 Mi Coche" onBack={onBack}
+      {!embedded&&<PageHeader isMobile={isMobile} title="🚗 Mi Coche" onBack={onBack}
         subtitle={carInfo.brand?`${carInfo.brand} ${carInfo.model} ${carInfo.year} · ${carInfo.plate}`:'Gestión completa de tu vehículo'}
         action={
           <div style={{display:'flex',gap:8}}>
@@ -7233,7 +7233,15 @@ const Coche = ({data,setData,isMobile,onBack}) => {
             {tab==='recordatorios' &&<Btn size="sm" onClick={()=>setModalReminder(true)}><Icon name="plus" size={14}/>Alerta</Btn>}
           </div>
         }
-      />
+      />}
+
+      {/* embedded header substitute */}
+      {embedded&&(
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+          <div style={{fontSize:13,color:T.muted}}>{carInfo.brand?`${carInfo.brand} ${carInfo.model} ${carInfo.year} · ${carInfo.plate}`:'Sin datos del vehículo'}</div>
+          <Btn size="sm" variant="ghost" onClick={()=>{setInfoForm({...carInfo});setModalInfo(true);}}>⚙️ Datos del coche</Btn>
+        </div>
+      )}
 
       {/* ── Tabs ── */}
       <div style={{display:'flex',gap:6,marginBottom:18,overflowX:'auto',paddingBottom:4}}>
@@ -7691,6 +7699,11 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
   const [docForm,setDocForm]         = useState({name:'',category:'',expiresAt:'',provider:'',amount:'',notes:'',photoUrl:''});
   const [contactForm,setContactForm] = useState({name:'',role:'',phone:'',email:'',notes:''});
   const [contactSearch,setContactSearch] = useState('');
+  const [modalFarmacia,setModalFarmacia] = useState(false);
+  const [editFarmacia,setEditFarmacia]   = useState(null);
+  const [editFarmaciaForm,setEditFarmaciaForm] = useState({});
+  const [farmaciaForm,setFarmaciaForm]   = useState({name:'',quantity:'',unit:'unidades',expiresAt:'',location:'',notes:''});
+  const [farmaciaSearch,setFarmaciaSearch] = useState('');
 
   const maints   = data.maintenances||[];
   const docs     = data.homeDocs||[];
@@ -7772,6 +7785,25 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
   };
   const copyPhone=(phone)=>{ navigator.clipboard?.writeText(phone).catch(()=>{}); };
 
+  // ── FARMACIA actions ──
+  const farmaciaItems = data.farmaciaItems||[];
+  const FARMACIA_UNITS=['unidades','tabletas','cápsulas','ml','mg','frascos','sobres','parches','gotas'];
+  const saveFarmacia=()=>{
+    if(!farmaciaForm.name.trim()) return;
+    const item={id:uid(),...farmaciaForm,quantity:Number(farmaciaForm.quantity)||0,createdAt:today()};
+    const upd=[item,...farmaciaItems]; setData(d=>({...d,farmaciaItems:upd})); save('farmaciaItems',upd);
+    setModalFarmacia(false); setFarmaciaForm({name:'',quantity:'',unit:'unidades',expiresAt:'',location:'',notes:''});
+    toast.success('Medicamento añadido al botiquín');
+  };
+  const delFarmacia=(id)=>{ const u=farmaciaItems.filter(i=>i.id!==id); setData(d=>({...d,farmaciaItems:u})); save('farmaciaItems',u); };
+  const updateFarmacia=()=>{
+    const upd=farmaciaItems.map(i=>i.id===editFarmacia.id?{...i,...editFarmaciaForm,quantity:Number(editFarmaciaForm.quantity)||0}:i);
+    setData(d=>({...d,farmaciaItems:upd})); save('farmaciaItems',upd); setEditFarmacia(null);
+  };
+  // Conexión con Salud: nombres de medicamentos activos
+  const activeMedNames=(data.medications||[]).map(m=>m.name.toLowerCase());
+  const isActiveMed=(name)=>activeMedNames.some(n=>name.toLowerCase().includes(n)||n.includes(name.toLowerCase()));
+
   // ── status helpers ──
   const maintStatus=(m)=>{
     const nd=nextDate(m.lastDone,m.frequencyDays);
@@ -7806,6 +7838,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
             {tab==='mantenimientos'&&<Btn size="sm" onClick={()=>setModalMaint(true)}><Icon name="plus" size={14}/>Tarea</Btn>}
             {tab==='documentos'    &&<Btn size="sm" onClick={()=>setModalDoc(true)}><Icon name="plus" size={14}/>Doc</Btn>}
             {tab==='contactos'     &&<Btn size="sm" onClick={()=>setModalContact(true)}><Icon name="plus" size={14}/>Contacto</Btn>}
+            {tab==='farmacia'      &&<Btn size="sm" onClick={()=>setModalFarmacia(true)}><Icon name="plus" size={14}/>Medicamento</Btn>}
           </div>
         }
       />
@@ -7884,7 +7917,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
 
       {/* ── Tabs ── */}
       <div style={{display:'flex',gap:8,marginBottom:16,flexWrap:'wrap'}}>
-        {[{id:'mantenimientos',label:'🔧 Mantenimientos'},{id:'documentos',label:'📄 Documentos'},{id:'contactos',label:'📞 Contactos'}].map(t=>(
+        {[{id:'mantenimientos',label:'🔧 Mantenimientos'},{id:'documentos',label:'📄 Documentos'},{id:'contactos',label:'📞 Contactos'},{id:'farmacia',label:'💊 Farmacia'},{id:'coche',label:'🚗 Coche'}].map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)}
             style={{padding:'7px 16px',borderRadius:10,border:`1px solid ${tab===t.id?T.accent:T.border}`,background:tab===t.id?`${T.accent}18`:'transparent',color:tab===t.id?T.accent:T.muted,cursor:'pointer',fontSize:13,fontWeight:tab===t.id?600:400,fontFamily:'inherit'}}>
             {t.label}
@@ -8208,6 +8241,109 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
           <div style={{display:'flex',gap:10,marginTop:20}}>
             <Btn onClick={updateContact} style={{flex:1,justifyContent:'center'}}>Guardar cambios</Btn>
             <Btn variant="ghost" onClick={()=>setEditContact(null)}>Cancelar</Btn>
+          </div>
+        </Modal>
+      )}
+      {/* ══════════ FARMACIA ══════════ */}
+      {tab==='farmacia'&&(
+        <div>
+          {/* Conexión con Salud */}
+          {activeMedNames.length>0&&(
+            <div style={{background:`${T.green}12`,border:`1px solid ${T.green}30`,borderRadius:12,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10}}>
+              <span style={{fontSize:18}}>💊</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:12,fontWeight:600,color:T.green}}>Medicamentos activos en Salud</div>
+                <div style={{fontSize:11,color:T.muted}}>{(data.medications||[]).map(m=>m.name).join(' · ')||'—'}</div>
+              </div>
+            </div>
+          )}
+          <input value={farmaciaSearch} onChange={e=>setFarmaciaSearch(e.target.value)}
+            placeholder="Buscar en botiquín…"
+            style={{width:'100%',padding:'9px 14px',borderRadius:10,border:`1px solid ${T.border}`,background:T.surface2,color:T.text,fontSize:13,marginBottom:14,boxSizing:'border-box',fontFamily:'inherit'}}/>
+          {farmaciaItems.length===0
+            ?<div style={{textAlign:'center',padding:'40px 0',color:T.dim}}>
+               <div style={{fontSize:36,marginBottom:8}}>💊</div>
+               <div style={{fontSize:14,marginBottom:4}}>Botiquín vacío</div>
+               <Btn size="sm" onClick={()=>setModalFarmacia(true)}>+ Agregar medicamento</Btn>
+             </div>
+            :<div style={{display:'flex',flexDirection:'column',gap:8}}>
+              {farmaciaItems
+                .filter(i=>!farmaciaSearch||i.name.toLowerCase().includes(farmaciaSearch.toLowerCase()))
+                .map(item=>{
+                  const active=isActiveMed(item.name);
+                  const expDiff=item.expiresAt?Math.ceil((new Date(item.expiresAt)-new Date())/(1000*60*60*24)):null;
+                  const expColor=expDiff===null?T.muted:expDiff<0?T.red:expDiff<=30?T.orange:T.green;
+                  return (
+                    <div key={item.id} style={{background:T.surface,border:`1px solid ${active?T.green:T.border}`,borderRadius:12,padding:'12px 14px',display:'flex',gap:12,alignItems:'flex-start',borderLeft:`4px solid ${active?T.green:T.border}`}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:4}}>
+                          <span style={{fontWeight:600,fontSize:14,color:T.text}}>{item.name}</span>
+                          {active&&<span style={{fontSize:10,background:`${T.green}20`,color:T.green,padding:'2px 7px',borderRadius:6,fontWeight:600}}>● EN USO</span>}
+                        </div>
+                        <div style={{display:'flex',gap:10,flexWrap:'wrap'}}>
+                          <span style={{fontSize:11,color:T.muted}}>📦 {item.quantity} {item.unit}</span>
+                          {item.location&&<span style={{fontSize:11,color:T.muted}}>📍 {item.location}</span>}
+                          {expDiff!==null&&<span style={{fontSize:11,color:expColor,fontWeight:600}}>{expDiff<0?`Vencido hace ${Math.abs(expDiff)}d`:expDiff===0?'Vence hoy':`Vence en ${expDiff}d`}</span>}
+                        </div>
+                        {item.notes&&<div style={{fontSize:11,color:T.dim,marginTop:4}}>{item.notes}</div>}
+                      </div>
+                      <div style={{display:'flex',gap:6,flexShrink:0}}>
+                        <button onClick={()=>{setEditFarmacia(item);setEditFarmaciaForm({...item});}} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontFamily:'inherit'}}>Editar</button>
+                        <button onClick={()=>delFarmacia(item.id)} style={{background:'none',border:`1px solid ${T.red}40`,borderRadius:8,padding:'4px 10px',cursor:'pointer',color:T.red,fontSize:11,fontFamily:'inherit'}}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          }
+        </div>
+      )}
+
+      {/* ══════════ COCHE ══════════ */}
+      {tab==='coche'&&(
+        <Coche data={data} setData={setData} isMobile={isMobile} onBack={()=>setTab('mantenimientos')} embedded={true}/>
+      )}
+
+      {/* ── Modal: nueva farmacia ── */}
+      {modalFarmacia&&(
+        <Modal title="Agregar al botiquín" onClose={()=>setModalFarmacia(false)}>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <Input value={farmaciaForm.name} onChange={v=>setFarmaciaForm(f=>({...f,name:v}))} placeholder="Nombre del medicamento *"/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <Input value={farmaciaForm.quantity} onChange={v=>setFarmaciaForm(f=>({...f,quantity:v}))} placeholder="Cantidad" type="number"/>
+              <Select value={farmaciaForm.unit} onChange={v=>setFarmaciaForm(f=>({...f,unit:v}))}>
+                {FARMACIA_UNITS.map(u=><option key={u}>{u}</option>)}
+              </Select>
+            </div>
+            <Input value={farmaciaForm.expiresAt} onChange={v=>setFarmaciaForm(f=>({...f,expiresAt:v}))} placeholder="Fecha vencimiento" type="date"/>
+            <Input value={farmaciaForm.location} onChange={v=>setFarmaciaForm(f=>({...f,location:v}))} placeholder="Ubicación (cajón, mueble…)"/>
+            <Input value={farmaciaForm.notes} onChange={v=>setFarmaciaForm(f=>({...f,notes:v}))} placeholder="Notas opcionales"/>
+          </div>
+          <div style={{display:'flex',gap:10,marginTop:20}}>
+            <Btn onClick={saveFarmacia} style={{flex:1,justifyContent:'center'}}>Guardar</Btn>
+            <Btn variant="ghost" onClick={()=>setModalFarmacia(false)}>Cancelar</Btn>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal: editar farmacia ── */}
+      {editFarmacia&&(
+        <Modal title="Editar medicamento" onClose={()=>setEditFarmacia(null)}>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            <Input value={editFarmaciaForm.name||''} onChange={v=>setEditFarmaciaForm(f=>({...f,name:v}))} placeholder="Nombre *"/>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:10}}>
+              <Input value={editFarmaciaForm.quantity||''} onChange={v=>setEditFarmaciaForm(f=>({...f,quantity:v}))} placeholder="Cantidad" type="number"/>
+              <Select value={editFarmaciaForm.unit||'unidades'} onChange={v=>setEditFarmaciaForm(f=>({...f,unit:v}))}>
+                {FARMACIA_UNITS.map(u=><option key={u}>{u}</option>)}
+              </Select>
+            </div>
+            <Input value={editFarmaciaForm.expiresAt||''} onChange={v=>setEditFarmaciaForm(f=>({...f,expiresAt:v}))} type="date"/>
+            <Input value={editFarmaciaForm.location||''} onChange={v=>setEditFarmaciaForm(f=>({...f,location:v}))} placeholder="Ubicación"/>
+            <Input value={editFarmaciaForm.notes||''} onChange={v=>setEditFarmaciaForm(f=>({...f,notes:v}))} placeholder="Notas"/>
+          </div>
+          <div style={{display:'flex',gap:10,marginTop:20}}>
+            <Btn onClick={updateFarmacia} style={{flex:1,justifyContent:'center'}}>Guardar cambios</Btn>
+            <Btn variant="ghost" onClick={()=>setEditFarmacia(null)}>Cancelar</Btn>
           </div>
         </Modal>
       )}
