@@ -8800,13 +8800,14 @@ self.addEventListener('fetch',e=>{
     })();
   },[]);
 
+  // ── Hooks must be declared before any conditional return (Rules of Hooks) ──
+  const consumeHint = useCallback(()=>setViewHint(null),[]);
+  const backToDashboard = useCallback(()=>navTo('dashboard'),[]);
+
   if(!data) return <AppLoader/>;
 
   const inboxCount=data.inbox.filter(i=>!i.processed).length;
   const props={data,setData,isMobile};
-
-  const consumeHint = useCallback(()=>setViewHint(null),[]);
-  const backToDashboard = useCallback(()=>navTo('dashboard'),[]);
 
   // ── View renderer ──
   const renderView = () => {
