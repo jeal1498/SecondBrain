@@ -13,16 +13,8 @@ const T = {
 };
 
 // ===================== RESPONSIVE HOOK =====================
-const useIsMobile = () => {
-  const [isMobile, setIsMobile] = useState(false); // safe SSR default
-  useEffect(() => {
-    setIsMobile(window.innerWidth < 768); // read window only on client
-    const handler = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
-  return isMobile;
-};
+// App is mobile-only — always true, no window access needed
+const useIsMobile = () => true;
 
 // ===================== STORAGE =====================
 // Uses localStorage as primary (works everywhere: Vercel, browsers, etc.)
@@ -3296,7 +3288,7 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
   const [saved,setSaved]=useState(false);
   const [sTab,setSTab]=useState('ia');
   const [reviewStep,setReviewStep]=useState(0);
-  const [notifEnabled,setNotifEnabled]=useState(()=>localStorage.getItem('sb_notifs')==='true');
+  const [notifEnabled,setNotifEnabled]=useState(()=>{try{return localStorage.getItem('sb_notifs')==='true';}catch{return false;}});
   const [notifSettings,setNotifSettings]=useState(()=>{
     try{return JSON.parse(localStorage.getItem('sb_notif_cfg')||'{}');}catch{return {};}
   });
@@ -7825,7 +7817,7 @@ const Health = ({data,setData,isMobile,onBack}) => {
                 color={cfg.color}
                 goal={cfg.goal}
                 unit={cfg.unit}
-                width={isMobile?Math.min(window.innerWidth-80,340):420}
+                width={Math.min((typeof window!=="undefined"?window.innerWidth:360)-80,340)}
                 height={140}
               />
               <div style={{display:'flex',justifyContent:'space-between',marginTop:4}}>
@@ -8658,8 +8650,8 @@ export default function App() {
   const [showMore,setShowMore]=useState(false);
   const [psickeOpen,setPsickeOpen]=useState(false);
   const [showSearch,setShowSearch]=useState(false);
-  const [apiKey,setApiKey]=useState(()=>localStorage.getItem('sb_gemini_key')||'');
-  const [showOnboarding,setShowOnboarding]=useState(()=>!localStorage.getItem('sb_onboarding_done'));
+  const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem('sb_gemini_key')||'';}catch{return '';}});
+  const [showOnboarding,setShowOnboarding]=useState(()=>{try{return !localStorage.getItem('sb_onboarding_done');}catch{return true;}});
   const [transitioning,setTransitioning]=useState(false);
   const isMobile=useIsMobile();
   isMobileGlobal=isMobile;
