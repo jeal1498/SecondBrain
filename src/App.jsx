@@ -412,13 +412,13 @@ const initData = () => ({
 
 // ===================== BASE COMPONENTS =====================
 const Modal = ({title,onClose,children}) => (
-  <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(4px)'}}
+  <div role="dialog" aria-modal="true" aria-label={title} style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:200,display:'flex',alignItems:'flex-end',justifyContent:'center',backdropFilter:'blur(4px)'}}
     onClick={e=>e.target===e.currentTarget&&onClose()}>
     <div style={{background:T.surface,border:`1px solid ${T.border}`,borderRadius:'16px 16px 0 0',padding:24,width:'100%',maxWidth:520,boxShadow:'0 -8px 40px rgba(0,0,0,0.5)',maxHeight:'90vh',overflowY:'auto'}}>
       <div style={{width:36,height:4,background:T.border,borderRadius:2,margin:'0 auto 20px'}}/>
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20}}>
         <h3 style={{margin:0,color:T.text,fontSize:16,fontWeight:600}}>{title}</h3>
-        <button onClick={onClose} aria-label="Cerrar búsqueda" style={{background:'none',border:'none',color:T.muted,cursor:'pointer',padding:4,display:'flex'}}><Icon name="x" size={18}/></button>
+        <button onClick={onClose} aria-label="Cerrar" style={{background:'none',border:'none',color:T.muted,cursor:'pointer',padding:4,display:'flex'}}><Icon name="x" size={18}/></button>
       </div>
       {children}
     </div>
@@ -3282,7 +3282,7 @@ const GEMINI_MODEL='gemini-2.5-flash-lite';
 
 
 // ===================== SETTINGS =====================
-const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint}) => {
+const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint,onOpenPsicke}) => {
   const [val,setVal]=useState(apiKey);
   const [show,setShow]=useState(false);
   const [saved,setSaved]=useState(false);
@@ -3618,10 +3618,11 @@ const Settings = ({apiKey,setApiKey,isMobile,data,setData,viewHint,onConsumeHint
                 <div style={{fontSize:36,marginBottom:10}}>🧠</div>
                 <div style={{fontSize:15,fontWeight:700,color:T.text,marginBottom:8}}>Resumen con Psicke</div>
                 <div style={{fontSize:12,color:T.muted,lineHeight:1.7,marginBottom:16,textAlign:'left',background:T.surface2,borderRadius:10,padding:'12px 14px'}}>
-                  {data&&`Tienes ${data.inbox.filter(i=>!i.processed).length} ítems en inbox, ${data.tasks.filter(t=>t.status!=='done').length} tareas pendientes, ${data.objectives.filter(o=>o.status==='active').length} objetivos activos y ${data.habits.length} hábitos configurados. Abre Psicke para un resumen detallado con IA.`}
+                  {data&&`Tienes ${data.inbox.filter(i=>!i.processed).length} ítems en inbox, ${data.tasks.filter(t=>t.status!=='done').length} tareas pendientes, ${data.objectives.filter(o=>o.status==='active').length} objetivos activos y ${data.habits.length} hábitos configurados.`}
                 </div>
-                <div style={{display:'flex',gap:8,justifyContent:'center'}}>
+                <div style={{display:'flex',gap:8,justifyContent:'center',flexWrap:'wrap'}}>
                   <button onClick={()=>setReviewStep(0)} style={{padding:'10px 20px',borderRadius:10,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>Reiniciar</button>
+                  {onOpenPsicke&&<button onClick={()=>{onOpenPsicke();toast.info('Pídele a Psicke un resumen de tu semana');}} style={{padding:'10px 24px',borderRadius:10,border:`1px solid ${T.purple}`,background:`${T.purple}18`,color:T.purple,cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit'}}>🧠 Abrir Psicke</button>}
                   <button onClick={()=>toast.success('Revisión completada','¡Buen trabajo esta semana!')} style={{padding:'10px 24px',borderRadius:10,border:'none',background:T.accent,color:'#000',cursor:'pointer',fontSize:13,fontWeight:700,fontFamily:'inherit'}}>✅ Completar revisión</button>
                 </div>
               </div>
@@ -7065,7 +7066,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
   const [editDocForm,setEditDocForm]     = useState({});
   const [editContactForm,setEditContactForm] = useState({});
   const [maintForm,setMaintForm]     = useState({name:'',category:'',frequencyDays:90,lastDone:'',notes:'',cost:''});
-  const [docForm,setDocForm]         = useState({name:'',category:'',expiresAt:'',provider:'',amount:'',notes:''});
+  const [docForm,setDocForm]         = useState({name:'',category:'',expiresAt:'',provider:'',amount:'',notes:'',photoUrl:''});
   const [contactForm,setContactForm] = useState({name:'',role:'',phone:'',email:'',notes:''});
   const [contactSearch,setContactSearch] = useState('');
 
@@ -7124,7 +7125,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
     if(!docForm.name.trim()) return;
     const d={id:uid(),...docForm,createdAt:today()};
     const upd=[d,...docs]; setData(s=>({...s,homeDocs:upd})); save('homeDocs',upd);
-    setModalDoc(false); setDocForm({name:'',category:'',expiresAt:'',provider:'',amount:'',notes:''});
+    setModalDoc(false); setDocForm({name:'',category:'',expiresAt:'',provider:'',amount:'',notes:'',photoUrl:''});
   };
   const delDoc=(id)=>{ const u=docs.filter(d=>d.id!==id); setData(s=>({...s,homeDocs:u})); save('homeDocs',u); };
   const updateDoc=()=>{
@@ -7347,11 +7348,17 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
                          {doc.amount&&<span>💰 ${Number(doc.amount).toLocaleString()}/año</span>}
                        </div>
                        {doc.notes&&<div style={{color:T.dim,fontSize:11,marginTop:4}}>{doc.notes}</div>}
+                       {doc.photoUrl&&(
+                         <a href={doc.photoUrl} target="_blank" rel="noopener noreferrer" style={{display:'inline-flex',alignItems:'center',gap:4,marginTop:6,fontSize:11,color:T.blue,textDecoration:'none',background:`${T.blue}10`,padding:'3px 10px',borderRadius:6,border:`1px solid ${T.blue}25`}}
+                           onClick={e=>e.stopPropagation()}>
+                           📷 Ver foto / QR
+                         </a>
+                       )}
                      </div>
                      <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6,flexShrink:0}}>
                        <span style={{fontSize:11,fontWeight:600,color:st.color,background:`${st.color}15`,padding:'3px 10px',borderRadius:8,whiteSpace:'nowrap'}}>{st.label}</span>
                        <div style={{display:'flex',gap:4}}>
-                         <button onClick={()=>{setEditDoc(doc);setEditDocForm({name:doc.name,category:doc.category||'',expiresAt:doc.expiresAt||'',provider:doc.provider||'',amount:doc.amount||'',notes:doc.notes||''});}} style={{background:`${T.blue}15`,border:`1px solid ${T.blue}30`,borderRadius:7,color:T.blue,cursor:'pointer',padding:'4px 7px',display:'flex',alignItems:'center',fontSize:11}}>✏️</button>
+                         <button onClick={()=>{setEditDoc(doc);setEditDocForm({name:doc.name,category:doc.category||'',expiresAt:doc.expiresAt||'',provider:doc.provider||'',amount:doc.amount||'',notes:doc.notes||'',photoUrl:doc.photoUrl||''});}} style={{background:`${T.blue}15`,border:`1px solid ${T.blue}30`,borderRadius:7,color:T.blue,cursor:'pointer',padding:'4px 7px',display:'flex',alignItems:'center',fontSize:11}}>✏️</button>
                          <button onClick={()=>delDoc(doc.id)} style={{background:'none',border:'none',color:T.dim,cursor:'pointer',padding:4,display:'flex'}}><Icon name="trash" size={13}/></button>
                        </div>
                      </div>
@@ -7473,6 +7480,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
               </div>
             </div>
             <Input value={docForm.provider} onChange={v=>setDocForm(f=>({...f,provider:v}))} placeholder="Proveedor / Compañía"/>
+            <Input value={docForm.photoUrl} onChange={v=>setDocForm(f=>({...f,photoUrl:v}))} placeholder="📷 URL de foto o QR del documento (opcional)"/>
             <Input value={docForm.notes} onChange={v=>setDocForm(f=>({...f,notes:v}))} placeholder="Notas (número de póliza, ubicación del documento...)"/>
           </div>
           <div style={{display:'flex',gap:10,marginTop:20}}>
@@ -7552,6 +7560,7 @@ const Hogar = ({data,setData,isMobile,onBack}) => {
               </div>
             </div>
             <Input value={editDocForm.provider||''} onChange={v=>setEditDocForm(f=>({...f,provider:v}))} placeholder="Proveedor"/>
+            <Input value={editDocForm.photoUrl||''} onChange={v=>setEditDocForm(f=>({...f,photoUrl:v}))} placeholder="📷 URL de foto o QR del documento"/>
             <Input value={editDocForm.notes||''} onChange={v=>setEditDocForm(f=>({...f,notes:v}))} placeholder="Notas"/>
           </div>
           <div style={{display:'flex',gap:10,marginTop:20}}>
@@ -8672,8 +8681,18 @@ function App() {
   const [apiKey,setApiKey]=useState(()=>{try{return localStorage.getItem('sb_gemini_key')||'';}catch{return '';}});
   const [showOnboarding,setShowOnboarding]=useState(()=>{try{return !localStorage.getItem('sb_onboarding_done');}catch{return true;}});
   const [transitioning,setTransitioning]=useState(false);
+  const [isOnline,setIsOnline]=useState(typeof navigator!=='undefined'?navigator.onLine:true);
   const isMobile=useIsMobile();
   isMobileGlobal=isMobile;
+
+  // ── Online/Offline detection ──
+  useEffect(()=>{
+    const goOnline=()=>setIsOnline(true);
+    const goOffline=()=>setIsOnline(false);
+    window.addEventListener('online',goOnline);
+    window.addEventListener('offline',goOffline);
+    return()=>{window.removeEventListener('online',goOnline);window.removeEventListener('offline',goOffline);};
+  },[]);
 
   // ── Emoji favicon + PWA manifest ──
   useEffect(()=>{
@@ -8831,7 +8850,7 @@ self.addEventListener('fetch',e=>{
       case 'sideprojects': return <SideProjects {...p} onBack={backToDashboard}/>;
       case 'desarrollo':   return <DesarrolloPersonal {...p} onBack={backToDashboard}/>;
       case 'hogar':        return <Hogar {...p} onBack={backToDashboard}/>;
-      case 'settings':     return <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData} viewHint={viewHint} onConsumeHint={consumeHint}/>;
+      case 'settings':     return <Settings apiKey={apiKey} setApiKey={setApiKey} isMobile={isMobile} data={data} setData={setData} viewHint={viewHint} onConsumeHint={consumeHint} onOpenPsicke={()=>setPsickeOpen(true)}/>;
       default:             return null;
     }
   };
@@ -8846,6 +8865,7 @@ self.addEventListener('fetch',e=>{
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
         html,body,#root{margin:0;padding:0;width:100%;height:100%;background:#090e13;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+        *:focus-visible{outline:2px solid ${T.accent};outline-offset:2px;border-radius:4px;}
         ::-webkit-scrollbar{width:5px;}
         ::-webkit-scrollbar-track{background:transparent;}
         ::-webkit-scrollbar-thumb{background:${T.border};border-radius:3px;}
@@ -8853,6 +8873,13 @@ self.addEventListener('fetch',e=>{
         input[type=date]::-webkit-calendar-picker-indicator{filter:invert(0.5);}
         select option{background:${T.surface};}
       `}</style>
+
+      {/* Offline indicator */}
+      {!isOnline&&(
+        <div style={{position:'fixed',top:0,left:0,right:0,zIndex:999,background:'#ff5c5c',color:'#fff',textAlign:'center',padding:'6px 12px',fontSize:12,fontWeight:700,letterSpacing:0.3,display:'flex',alignItems:'center',justifyContent:'center',gap:8}}>
+          <span>📡</span> Sin conexión — los datos se guardan localmente
+        </div>
+      )}
 
       {/* DESKTOP SIDEBAR */}
       {!isMobile&&(
@@ -8868,7 +8895,7 @@ self.addEventListener('fetch',e=>{
               </div>
             </div>
           </div>
-          <nav style={{flex:1,padding:'8px 8px',overflowY:'auto'}}>
+          <nav role="navigation" aria-label="Menú principal" style={{flex:1,padding:'8px 8px',overflowY:'auto'}}>
             {NAV_SECTIONS.map(section=>(
               <div key={section.label} style={{marginBottom:4}}>
                 <div style={{fontSize:9,fontWeight:700,color:T.dim,letterSpacing:1.2,textTransform:'uppercase',padding:'8px 12px 4px'}}>{section.label}</div>
@@ -8877,6 +8904,7 @@ self.addEventListener('fetch',e=>{
                   const badge=item.id==='inbox'&&inboxCount>0?inboxCount:null;
                   return (
                     <button key={item.id} onClick={()=>navTo(item.id)}
+                      aria-label={`Ir a ${item.name}`} aria-current={active?'page':undefined}
                       style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'7px 12px',borderRadius:9,border:'none',cursor:'pointer',textAlign:'left',fontFamily:'inherit',fontSize:12,fontWeight:active?600:400,
                         background:active?`${T.accent}18`:'transparent',color:active?T.accent:T.muted,transition:'all 0.15s',marginBottom:1}}>
                       <Icon name={item.icon} size={15} color={active?T.accent:T.muted}/>
@@ -8889,7 +8917,7 @@ self.addEventListener('fetch',e=>{
             ))}
           </nav>
           <div style={{padding:'12px 16px',borderTop:`1px solid ${T.border}`,display:'flex',flexDirection:'column',gap:6}}>
-            <button onClick={()=>setShowSearch(true)} style={{display:'flex',alignItems:'center',gap:8,background:'transparent',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit',width:'100%',marginBottom:4}}>
+            <button onClick={()=>setShowSearch(true)} aria-label="Abrir búsqueda global (Cmd+K)" style={{display:'flex',alignItems:'center',gap:8,background:'transparent',border:`1px solid ${T.border}`,borderRadius:8,padding:'6px 10px',cursor:'pointer',color:T.muted,fontSize:12,fontFamily:'inherit',width:'100%',marginBottom:4}}>
               🔍 <span>Búsqueda global</span>
             </button>
             <div style={{display:'flex',alignItems:'center',gap:6,cursor:'pointer'}} onClick={()=>navTo('settings')}>
@@ -8914,8 +8942,8 @@ self.addEventListener('fetch',e=>{
           </div>
           <div style={{display:'flex',gap:8,alignItems:'center'}}>
           {inboxCount>0&&<span style={{background:T.red,color:'#fff',fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:12}}>{inboxCount} inbox</span>}
-          <button onClick={()=>setShowSearch(true)} style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>🔍</button>
-          <button onClick={()=>navTo('settings')} style={{background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
+          <button onClick={()=>setShowSearch(true)} aria-label="Buscar" style={{background:'none',border:`1px solid ${T.border}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:T.muted,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>🔍</button>
+          <button onClick={()=>navTo('settings')} aria-label="Configuración" style={{background:'none',border:`1px solid ${apiKey?T.green:T.red}`,borderRadius:8,padding:'3px 10px',cursor:'pointer',color:apiKey?T.green:T.red,fontSize:11,fontWeight:600,display:'flex',alignItems:'center',gap:4}}>
             <span style={{width:6,height:6,borderRadius:'50%',background:apiKey?T.green:T.red,display:'inline-block'}}/>
             {apiKey?'IA ON':'IA OFF'}
           </button>
@@ -8924,7 +8952,7 @@ self.addEventListener('fetch',e=>{
       )}
 
       {/* MAIN CONTENT */}
-      <main style={{flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0}}>
+      <main role="main" aria-label="Contenido principal" style={{flex:1,overflowY:'auto',padding:isMobile?'16px 16px 90px':'28px',minHeight:0,marginTop:isOnline?0:28}}>
         <div style={{opacity:transitioning?0:1,transform:transitioning?'translateY(6px)':'translateY(0)',transition:'opacity 0.12s ease,transform 0.12s ease'}}>
           {views[view]}
         </div>
@@ -8932,12 +8960,13 @@ self.addEventListener('fetch',e=>{
 
       {/* MOBILE BOTTOM NAV */}
       {isMobile&&(
-        <div style={{position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)'}}>
+        <nav role="navigation" aria-label="Navegación móvil" style={{position:'fixed',bottom:0,left:0,right:0,background:T.surface,borderTop:`1px solid ${T.border}`,display:'flex',zIndex:50,paddingBottom:'env(safe-area-inset-bottom)'}}>
           {MOBILE_NAV.map(item=>{
             const isPsicke=item.id==='__psicke__';
             const active=isPsicke?psickeOpen:(view===item.id&&!psickeOpen);
             return (
-              <button key={item.id} onClick={()=>{
+              <button key={item.id} aria-label={isPsicke?'Abrir Psicke IA':`Ir a ${item.label}`} aria-current={active?'page':undefined}
+                onClick={()=>{
                 if(isPsicke){setPsickeOpen(true);}
                 else{setPsickeOpen(false);navTo(item.id);}
               }}
@@ -8953,7 +8982,7 @@ self.addEventListener('fetch',e=>{
               </button>
             );
           })}
-        </div>
+        </nav>
       )}
 
       {/* GLOBAL SEARCH OVERLAY */}
