@@ -4622,19 +4622,29 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
       };
 
         // ── AUTO-CASCADE: guaranteed cross-module propagation regardless of AI output ──
+        // Helper: fuzzy check if a SAVE_TRANSACTION for this amount+context already exists in actions
+        const hasTxForAmount=(amt,keyword)=>actions.some(a=>
+          a.action==='SAVE_TRANSACTION'&&
+          Number(a.data.amount)===Number(amt)&&
+          (a.data.description||'').toLowerCase().includes((keyword||'').toLowerCase().split(' ')[0])
+        );
+        const hasCarExpForAmount=(amt)=>actions.some(a=>
+          a.action==='SAVE_CAR_EXPENSE'&&Number(a.data.amount)===Number(amt)
+        );
+
         const autoCascade=(action)=>{
           const d=action.data;const cascaded=[];
-          // CAR MAINTENANCE with cost → auto TRANSACTION + CAR EXPENSE
+          // CAR MAINTENANCE with cost → auto TRANSACTION + CAR EXPENSE (only if AI didn't already send them)
           if(action.action==='SAVE_CAR_MAINTENANCE'&&Number(d.cost)>0){
-            const alreadyTx=actions.some(a=>a.action==='SAVE_TRANSACTION'&&a.data.description?.toLowerCase()===d.name?.toLowerCase());
-            if(!alreadyTx) cascaded.push({action:'SAVE_TRANSACTION',data:{type:'egreso',amount:d.cost,currency:d.currency||'MXN',category:'Transporte',description:d.name,date:d.lastDone||td}});
-            const alreadyExp=actions.some(a=>a.action==='SAVE_CAR_EXPENSE');
-            if(!alreadyExp) cascaded.push({action:'SAVE_CAR_EXPENSE',data:{concept:d.name,category:'Reparación',amount:d.cost,date:d.lastDone||td,notes:d.notes||''}});
+            if(!hasTxForAmount(d.cost,d.name))
+              cascaded.push({action:'SAVE_TRANSACTION',data:{type:'egreso',amount:d.cost,currency:d.currency||'MXN',category:'Transporte',description:d.name,date:d.lastDone||td}});
+            if(!hasCarExpForAmount(d.cost))
+              cascaded.push({action:'SAVE_CAR_EXPENSE',data:{concept:d.name,category:'Reparación',amount:d.cost,date:d.lastDone||td,notes:d.notes||''}});
           }
           // HOGAR MAINTENANCE with cost → auto TRANSACTION
           if(action.action==='SAVE_MAINTENANCE'&&Number(d.cost)>0){
-            const alreadyTx=actions.some(a=>a.action==='SAVE_TRANSACTION'&&a.data.description?.toLowerCase()===d.name?.toLowerCase());
-            if(!alreadyTx) cascaded.push({action:'SAVE_TRANSACTION',data:{type:'egreso',amount:d.cost,currency:d.currency||'MXN',category:'Hogar',description:d.name,date:d.lastDone||td}});
+            if(!hasTxForAmount(d.cost,d.name))
+              cascaded.push({action:'SAVE_TRANSACTION',data:{type:'egreso',amount:d.cost,currency:d.currency||'MXN',category:'Hogar',description:d.name,date:d.lastDone||td}});
           }
           // WORKOUT → auto mark matching habit complete today
           if(action.action==='SAVE_WORKOUT'){
@@ -4653,16 +4663,15 @@ const Psicke=({apiKey,onGoSettings,data,setData,openFromNav,onNavClose})=>{
           if(action.action==='SAVE_MEDICATION'&&Number(d.stock)>0){
             const alreadyFarm=actions.some(a=>a.action==='SAVE_FARMACIA_ITEM');
             const existsInFarm=(updData.farmaciaItems||[]).some(f=>f.name.toLowerCase()===d.name.toLowerCase());
-            if(!alreadyFarm&&!existsInFarm) cascaded.push({action:'SAVE_FARMACIA_ITEM',data:{name:d.name,quantity:d.stock,unit:d.unit||'unidades',notes:`Prescrito: ${d.dose||''} ${d.frequency||''}`}});
+            if(!alreadyFarm&&!existsInFarm)
+              cascaded.push({action:'SAVE_FARMACIA_ITEM',data:{name:d.name,quantity:d.stock,unit:d.unit||'unidades',notes:`Prescrito: ${d.dose||''} ${d.frequency||''}`}});
           }
-          // TRANSACTION egreso → auto add to car expenses if category is Transporte and carInfo exists
+          // TRANSACTION egreso Transporte → auto CAR EXPENSE only if carInfo exists AND no CAR_MAINTENANCE already handling it
           if(action.action==='SAVE_TRANSACTION'&&d.type==='egreso'&&d.category==='Transporte'){
-            const alreadyCarExp=actions.some(a=>a.action==='SAVE_CAR_EXPENSE');
-            if(!alreadyCarExp&&(updData.carInfo?.brand)){
+            const maintHandled=actions.some(a=>a.action==='SAVE_CAR_MAINTENANCE');
+            if(!maintHandled&&!hasCarExpForAmount(d.amount)&&updData.carInfo?.brand)
               cascaded.push({action:'SAVE_CAR_EXPENSE',data:{concept:d.description||d.category,category:'Combustible',amount:d.amount,date:d.date||td,notes:''}});
-            }
           }
-          // SAVE_PLAN → also auto-create objective tasks as inbox items if area exists
           // SAVE_PERSON with birthday → auto SAVE_FOLLOWUP reminder
           if(action.action==='SAVE_PERSON'&&d.birthday){
             cascaded.push({action:'SAVE_FOLLOWUP',data:{personName:d.name,task:`Felicitar cumpleaños a ${d.name}`,dueDate:d.birthday.replace(/^\d{4}/,new Date().getFullYear()),priority:'media'}});
