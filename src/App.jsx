@@ -903,6 +903,7 @@ const Dashboard = ({data,setData,isMobile,onNavigate}) => {
   const todayStr=today();
   const h=new Date().getHours();
   const greeting=h<12?'Buenos días':h<18?'Buenas tardes':'Buenas noches';
+  const storedName=(()=>{try{return localStorage.getItem('sb_user_name')||'';}catch{return '';}})();
   const [toast,setToast]       = useState(null);
   const [projExpanded,setProjExpanded] = useState(null);
   const [addingTask,setAddingTask]     = useState(false);
@@ -9875,39 +9876,452 @@ const Finance = ({data,setData,isMobile,onBack}) => {
 
 
 // ===================== ONBOARDING =====================
-const ONBOARDING_STEPS=[
-  {icon:'🧠',title:'Bienvenido a tu Segundo Cerebro',desc:'Un sistema todo-en-uno para externalizar tu memoria, organizar tus ideas y vivir con más intención.',color:'#00c896'},
-  {icon:'📥',title:'Empieza por el Inbox',desc:'Vuelca cualquier idea, tarea o pensamiento. No lo filtres, solo captúralo. Después lo clasificas con el flujo GTD.',color:'#4da6ff'},
-  {icon:'🎯',title:'Define tus Objetivos',desc:'Cada área de tu vida puede tener objetivos concretos, con milestones y check-ins semanales para medir avance.',color:'#ff8c42'},
-  {icon:'🔥',title:'Construye hábitos sólidos',desc:'Registra tus hábitos diarios y visualiza tu progreso con rachas, heatmaps y estadísticas de las últimas semanas.',color:'#ff5069'},
-  {icon:'⚡',title:'Psicke te ayuda',desc:'Abre el asistente IA con el botón flotante y pídele resumir tu día, crear notas/tareas con /comandos, o aconsejarte.',color:'#a78bfa'},
-  {icon:'🔍',title:'Búsqueda global',desc:'Presiona Cmd+K (o Ctrl+K) en cualquier momento para buscar en todos tus módulos, o filtrar por fechas como "esta semana".',color:'#ffd166'},
+// ===================== PSICKE ONBOARDING =====================
+const OB_AREAS = [
+  { id:'salud',      emoji:'💪', label:'Salud'          },
+  { id:'trabajo',    emoji:'💼', label:'Trabajo'         },
+  { id:'finanzas',   emoji:'💰', label:'Finanzas'        },
+  { id:'hogar',      emoji:'🏠', label:'Hogar'           },
+  { id:'relaciones', emoji:'👥', label:'Relaciones'      },
+  { id:'desarrollo', emoji:'🧠', label:'Desarrollo'      },
+  { id:'sideproj',   emoji:'🚀', label:'Side projects'   },
 ];
+const OB_CHALLENGES = [
+  { id:'capt',  label:'Olvido cosas importantes'  },
+  { id:'prio',  label:'No sé qué priorizar'        },
+  { id:'habit', label:'Mis hábitos no duran'       },
+  { id:'proj',  label:'Proyectos sin terminar'     },
+  { id:'over',  label:'Me siento abrumado'         },
+];
+const OB_AREA_QS = {
+  trabajo:[
+    { key:'trabajo_proyecto', type:'text',
+      question:(n)=><>¿En qué proyecto de trabajo estás más <em>enfocado ahora mismo</em>, {n}?</>,
+      placeholder:'Nombre del proyecto…', hint:'Se creará como tu proyecto activo principal' },
+    { key:'trabajo_next', type:'text',
+      question:()=><>¿Y cuál es la <em>siguiente acción concreta</em> que tienes pendiente?</>,
+      placeholder:'Ej. Enviar propuesta al cliente…', hint:'Se añadirá como tarea con prioridad alta' },
+  ],
+  salud:[
+    { key:'salud_habit', type:'text',
+      question:(n)=><>¿Qué hábito de salud quieres <em>mantener o retomar</em>, {n}?</>,
+      placeholder:'Ej. Correr 30 minutos, beber 2L de agua…', hint:'Se creará como hábito diario' },
+    { key:'salud_objetivo', type:'text',
+      question:()=><>¿Cuál es tu <em>meta de salud</em> para este año?</>,
+      placeholder:'Ej. Correr una carrera de 5K…', hint:'Se creará como objetivo en tu área de Salud' },
+  ],
+  finanzas:[
+    { key:'finanzas_meta', type:'text',
+      question:(n)=><>{n}, ¿tienes alguna <em>meta financiera</em> clara este año?</>,
+      placeholder:'Ej. Ahorrar 3 meses de emergencia…', hint:'Se creará como objetivo en Finanzas' },
+    { key:'finanzas_pendiente', type:'text',
+      question:()=><>¿Hay algún tema de dinero que llevas tiempo <em>posponiendo atender</em>?</>,
+      placeholder:'Ej. Revisar suscripciones, declarar impuestos…', hint:'Se añadirá a tu Inbox' },
+  ],
+  hogar:[
+    { key:'hogar_pendiente', type:'text',
+      question:(n)=><>{n}, ¿hay algo en casa que llevas tiempo <em>posponiendo</em>?</>,
+      placeholder:'Ej. Reparar la llave del baño…', hint:'Se creará como mantenimiento pendiente' },
+  ],
+  relaciones:[
+    { key:'relaciones_persona', type:'text',
+      question:(n)=><>¿Hay alguien con quien quieras <em>mantener más contacto</em>, {n}?</>,
+      placeholder:'Nombre de esa persona…', hint:'Se añadirá a tus contactos' },
+  ],
+  desarrollo:[
+    { key:'desarrollo_aprender', type:'text',
+      question:(n)=><>{n}, ¿qué quieres <em>aprender o dominar</em> este año?</>,
+      placeholder:'Ej. React, fotografía, un idioma…', hint:'Se creará como objetivo de desarrollo' },
+    { key:'desarrollo_leer', type:'text', optional:true,
+      question:()=><>¿Hay algún libro que tengas en mente para <em>leer próximamente</em>?</>,
+      placeholder:'Título del libro… (opcional)', hint:'Se añadirá a tu lista de lectura' },
+  ],
+  sideproj:[
+    { key:'sideproj_nombre', type:'text',
+      question:(n)=><>{n}, ¿cómo se llama tu <em>side project más importante</em> ahora?</>,
+      placeholder:'Nombre del proyecto…', hint:'Se creará en tu sección de Side Projects' },
+    { key:'sideproj_estado', type:'choice',
+      question:()=><>¿En qué fase está ese proyecto <em>en este momento</em>?</>,
+      hint:'Ayuda a saber en qué momento del camino estás',
+      choices:[
+        { id:'idea',     label:'Solo una idea'       },
+        { id:'building', label:'Lo estoy construyendo'},
+        { id:'launched', label:'Ya está lanzado'      },
+        { id:'paused',   label:'Está pausado'         },
+      ],
+    },
+  ],
+};
+
+const OBAppear=({children,delay=0,style={}})=>{
+  const [show,setShow]=useState(false);
+  useEffect(()=>{const t=setTimeout(()=>setShow(true),delay);return()=>clearTimeout(t);},[delay]);
+  return(
+    <div style={{opacity:show?1:0,transform:show?'translateY(0)':'translateY(10px)',
+      transition:'opacity .65s ease,transform .65s ease',...style}}>
+      {children}
+    </div>
+  );
+};
+
+const OB_ghost=(active)=>({
+  background:active?'rgba(255,255,255,0.07)':'transparent',
+  border:`1px solid ${active?'rgba(255,255,255,0.22)':'rgba(255,255,255,0.09)'}`,
+  borderRadius:10,padding:'12px 16px',
+  color:active?'rgba(255,255,255,0.78)':'rgba(255,255,255,0.35)',
+  fontSize:13,fontFamily:"'Inter',sans-serif",fontWeight:300,
+  cursor:'pointer',textAlign:'left',transition:'all .2s',letterSpacing:.3,width:'100%',
+});
+const OB_pill=(active)=>({
+  background:active?'rgba(255,255,255,0.07)':'transparent',
+  border:`1px solid ${active?'rgba(255,255,255,0.22)':'rgba(255,255,255,0.09)'}`,
+  borderRadius:24,padding:'8px 15px',
+  color:active?'rgba(255,255,255,0.72)':'rgba(255,255,255,0.3)',
+  fontSize:12,fontFamily:"'Inter',sans-serif",fontWeight:active?400:300,
+  cursor:'pointer',display:'flex',alignItems:'center',gap:6,
+  transition:'all .2s',letterSpacing:.3,
+});
+const OB_cta=(enabled)=>({
+  background:'transparent',
+  border:`1px solid ${enabled?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.07)'}`,
+  borderRadius:24,padding:'9px 22px',
+  color:enabled?'rgba(255,255,255,0.55)':'rgba(255,255,255,0.15)',
+  fontSize:11,fontFamily:"'Inter',sans-serif",fontWeight:300,
+  letterSpacing:2,textTransform:'uppercase',
+  cursor:enabled?'pointer':'default',transition:'all .3s',alignSelf:'flex-start',
+});
+const OB_input={
+  background:'transparent',border:'none',
+  borderBottom:'1px solid rgba(255,255,255,0.12)',
+  color:'rgba(255,255,255,0.82)',fontSize:18,
+  fontFamily:"'Lora',serif",fontStyle:'italic',
+  padding:'6px 0',outline:'none',width:'100%',
+  caretColor:'rgba(255,255,255,0.35)',
+};
+
 const Onboarding=({onDone})=>{
-  const [step,setStep]=useState(0);
-  const s=ONBOARDING_STEPS[step];
-  const isLast=step===ONBOARDING_STEPS.length-1;
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.88)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16,backdropFilter:'blur(8px)'}}>
-      <div style={{background:T.surface,border:`1px solid ${s.color}50`,borderRadius:20,padding:32,maxWidth:400,width:'100%',textAlign:'center',boxShadow:`0 0 60px ${s.color}30`}}>
-        {/* Progress dots */}
-        <div style={{display:'flex',gap:6,justifyContent:'center',marginBottom:24}}>
-          {ONBOARDING_STEPS.map((_,i)=>(
-            <div key={i} style={{width:i===step?22:7,height:7,borderRadius:4,background:i===step?s.color:T.border,transition:'all 0.3s'}}/>
-          ))}
+  const STEPS=['name','challenge','areas','area_questions','done'];
+  const [gStep,setGStep]         = useState('name');
+  const [transitioning,setTrans] = useState(false);
+  const [userName,setUserName]   = useState('');
+  const [inputVal,setInputVal]   = useState('');
+  const [challenge,setChallenge] = useState(null);
+  const [selAreas,setSelAreas]   = useState([]);
+  const [seedData,setSeedData]   = useState({});
+  const [areaQueue,setAreaQueue] = useState([]);
+  const [curArea,setCurArea]     = useState(null);
+  const [curQIdx,setCurQIdx]     = useState(0);
+  const [areaInput,setAreaInput] = useState('');
+  const [choiceVal,setChoiceVal] = useState(null);
+  const inputRef    = useRef(null);
+  const areaInputRef = useRef(null);
+
+  useEffect(()=>{ if(gStep==='name') setTimeout(()=>inputRef.current?.focus(),750); },[gStep]);
+  useEffect(()=>{ if(gStep==='area_questions') setTimeout(()=>areaInputRef.current?.focus(),700); },[gStep,curArea,curQIdx]);
+
+  const advance=(next,fn)=>{
+    setTrans(true);
+    setTimeout(()=>{ fn?.(); setGStep(next); setTrans(false); },400);
+  };
+
+  const confirmName=()=>{
+    if(!inputVal.trim()) return;
+    advance('challenge',()=>setUserName(inputVal.trim()));
+  };
+  const confirmChallenge=(id)=>{
+    setChallenge(id);
+    setTimeout(()=>advance('areas',()=>{}),320);
+  };
+  const toggleArea=(id)=>setSelAreas(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id]);
+  const confirmAreas=()=>{
+    const queue=selAreas.filter(id=>OB_AREA_QS[id]);
+    if(!queue.length){ advance('done',()=>{}); return; }
+    advance('area_questions',()=>{
+      setAreaQueue(queue); setCurArea(queue[0]); setCurQIdx(0); setAreaInput(''); setChoiceVal(null);
+    });
+  };
+
+  const curQs    = curArea?(OB_AREA_QS[curArea]||[]):[];
+  const curQ     = curQs[curQIdx]||null;
+  const totalQs  = areaQueue.reduce((s,id)=>s+(OB_AREA_QS[id]?.length||0),0);
+  const doneQs   = areaQueue.slice(0,areaQueue.indexOf(curArea)).reduce((s,id)=>s+(OB_AREA_QS[id]?.length||0),0)+curQIdx;
+  const canNext  = curQ?.type==='choice'?!!choiceVal:(curQ?.optional?true:areaInput.trim().length>0);
+  const areaInfo = curArea?OB_AREAS.find(a=>a.id===curArea):null;
+
+  const nextQ=()=>{
+    if(curQ?.type==='choice'){ if(choiceVal) setSeedData(d=>({...d,[curQ.key]:choiceVal})); }
+    else { if(areaInput.trim()||curQ?.optional) setSeedData(d=>({...d,[curQ.key]:areaInput.trim()})); }
+    if(curQIdx+1<curQs.length){
+      setTrans(true);
+      setTimeout(()=>{ setCurQIdx(i=>i+1); setAreaInput(''); setChoiceVal(null); setTrans(false); },380);
+      return;
+    }
+    const nextIdx=areaQueue.indexOf(curArea)+1;
+    if(nextIdx<areaQueue.length){
+      setTrans(true);
+      setTimeout(()=>{ setCurArea(areaQueue[nextIdx]); setCurQIdx(0); setAreaInput(''); setChoiceVal(null); setTrans(false); },380);
+      return;
+    }
+    // All area questions done — collect last answer then go to done
+    const finalSeed = {...seedData};
+    if(curQ?.type==='choice'){ if(choiceVal) finalSeed[curQ.key]=choiceVal; }
+    else { if(areaInput.trim()||curQ?.optional) finalSeed[curQ.key]=areaInput.trim(); }
+    advance('done',()=>setSeedData(finalSeed));
+  };
+
+  const OB_SEED_META={
+    trabajo_proyecto:{ icon:'📁', label:'Proyecto'  },
+    trabajo_next:    { icon:'✅', label:'Tarea'      },
+    salud_habit:     { icon:'🔥', label:'Hábito'     },
+    salud_objetivo:  { icon:'🎯', label:'Objetivo'   },
+    finanzas_meta:   { icon:'🎯', label:'Objetivo'   },
+    finanzas_pendiente:{ icon:'📥', label:'Inbox'    },
+    hogar_pendiente: { icon:'🔧', label:'Mantenimiento'},
+    relaciones_persona:{ icon:'👤', label:'Contacto' },
+    desarrollo_aprender:{ icon:'🎯', label:'Objetivo'},
+    desarrollo_leer: { icon:'📚', label:'Libro'      },
+    sideproj_nombre: { icon:'🚀', label:'Side project'},
+    sideproj_estado: { icon:'📍', label:'Estado'     },
+  };
+
+  const content=(
+    <div style={{
+      width:'100%',maxWidth:400,position:'relative',zIndex:1,
+      opacity:transitioning?0:1,
+      transform:transitioning?'translateY(8px)':'translateY(0)',
+      transition:'opacity .38s ease,transform .38s ease',
+    }}>
+      {/* Wordmark */}
+      <OBAppear delay={0} style={{marginBottom:60}}>
+        <div style={{display:'flex',alignItems:'center',gap:9}}>
+          <svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1.1">
+            <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-1.44-4.44 2.5 2.5 0 0 1 0-3.1 2.5 2.5 0 0 1 2.44-4.5A2.5 2.5 0 0 1 9.5 2Z"/>
+            <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 1.44-4.44 2.5 2.5 0 0 0 0-3.1 2.5 2.5 0 0 0-2.44-4.5A2.5 2.5 0 0 0 14.5 2Z"/>
+          </svg>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.18)',fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',fontFamily:"'Inter',sans-serif"}}>
+            Segundo Cerebro
+          </span>
         </div>
-        <div style={{fontSize:52,marginBottom:16,lineHeight:1}}>{s.icon}</div>
-        <h2 style={{color:T.text,fontSize:20,fontWeight:700,margin:'0 0 12px',lineHeight:1.3}}>{s.title}</h2>
-        <p style={{color:T.muted,fontSize:14,lineHeight:1.7,margin:'0 0 28px'}}>{s.desc}</p>
-        <div style={{display:'flex',gap:10,justifyContent:'center'}}>
-          {step>0&&<button onClick={()=>setStep(s=>s-1)} style={{padding:'10px 20px',borderRadius:12,border:`1px solid ${T.border}`,background:'transparent',color:T.muted,cursor:'pointer',fontSize:13,fontFamily:'inherit'}}>← Atrás</button>}
-          <button onClick={isLast?onDone:()=>setStep(s=>s+1)}
-            style={{padding:'10px 28px',borderRadius:12,border:'none',background:s.color,color:'#000',cursor:'pointer',fontSize:14,fontWeight:700,fontFamily:'inherit',flex:1,maxWidth:200}}>
-            {isLast?'¡Empezar! 🚀':'Siguiente →'}
+      </OBAppear>
+
+      {/* ── NAME ── */}
+      {gStep==='name'&&<>
+        <OBAppear delay={180} style={{marginBottom:20}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.16)',fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>01 / 03</p>
+        </OBAppear>
+        <OBAppear delay={350} style={{marginBottom:36}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:'rgba(255,255,255,0.55)',lineHeight:1.7,margin:0}}>
+            Antes de empezar, <em>¿cómo te gusta que te llamen?</em>
+          </p>
+        </OBAppear>
+        <OBAppear delay={620} style={{display:'flex',flexDirection:'column',gap:14}}>
+          <input ref={inputRef} value={inputVal} onChange={e=>setInputVal(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&confirmName()}
+            placeholder="Tu nombre o apodo…" style={OB_input}/>
+          <button onClick={confirmName} style={OB_cta(!!inputVal.trim())}>Continuar</button>
+        </OBAppear>
+        <OBAppear delay={1100} style={{marginTop:36}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.1)',margin:0,fontFamily:"'Inter',sans-serif"}}>Presiona Enter para continuar</p>
+        </OBAppear>
+      </>}
+
+      {/* ── CHALLENGE ── */}
+      {gStep==='challenge'&&<>
+        <OBAppear delay={180} style={{marginBottom:20}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.16)',fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>02 / 03</p>
+        </OBAppear>
+        <OBAppear delay={350} style={{marginBottom:36}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:'rgba(255,255,255,0.55)',lineHeight:1.7,margin:0}}>
+            Hola, <em>{userName}</em>. Todos llegamos con una necesidad distinta.{' '}
+            <em>¿Cuál es la tuya ahora mismo?</em>
+          </p>
+        </OBAppear>
+        <OBAppear delay={620}>
+          <div style={{display:'flex',flexDirection:'column',gap:7}}>
+            {OB_CHALLENGES.map(ch=>(
+              <button key={ch.id} onClick={()=>confirmChallenge(ch.id)} style={OB_ghost(challenge===ch.id)}>
+                {ch.label}
+              </button>
+            ))}
+          </div>
+        </OBAppear>
+        <OBAppear delay={1100} style={{marginTop:36}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.1)',margin:0,fontFamily:"'Inter',sans-serif"}}>Tómate tu tiempo</p>
+        </OBAppear>
+      </>}
+
+      {/* ── AREAS ── */}
+      {gStep==='areas'&&<>
+        <OBAppear delay={180} style={{marginBottom:20}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.16)',fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>03 / 03</p>
+        </OBAppear>
+        <OBAppear delay={350} style={{marginBottom:36}}>
+          <p style={{fontSize:21,fontFamily:"'Lora',serif",fontWeight:400,color:'rgba(255,255,255,0.55)',lineHeight:1.7,margin:0}}>
+            Segundo Cerebro se organiza alrededor de tu vida.{' '}
+            <em>¿Qué áreas quieres que cuide contigo?</em>
+          </p>
+        </OBAppear>
+        <OBAppear delay={620}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:7,marginBottom:22}}>
+            {OB_AREAS.map(a=>(
+              <button key={a.id} onClick={()=>toggleArea(a.id)} style={OB_pill(selAreas.includes(a.id))}>
+                <span style={{fontSize:13}}>{a.emoji}</span>{a.label}
+              </button>
+            ))}
+          </div>
+          <button onClick={confirmAreas} style={OB_cta(selAreas.length>0)}>
+            {selAreas.length?`Activar ${selAreas.length} área${selAreas.length!==1?'s':''}` : 'Elige al menos una'}
           </button>
-        </div>
-        <button onClick={onDone} style={{marginTop:14,background:'none',border:'none',color:T.dim,cursor:'pointer',fontSize:12,fontFamily:'inherit'}}>Omitir tour</button>
-      </div>
+        </OBAppear>
+      </>}
+
+      {/* ── AREA QUESTIONS ── */}
+      {gStep==='area_questions'&&curQ&&<>
+        <OBAppear delay={100} style={{marginBottom:22,display:'flex',alignItems:'center',gap:12}}>
+          <span style={{fontSize:11,color:'rgba(255,255,255,0.28)',fontWeight:300,letterSpacing:1.5,textTransform:'uppercase',
+            display:'flex',alignItems:'center',gap:6,fontFamily:"'Inter',sans-serif"}}>
+            <span style={{fontSize:14}}>{areaInfo?.emoji}</span>{areaInfo?.label}
+          </span>
+          <div style={{flex:1,height:1,background:'rgba(255,255,255,0.07)',borderRadius:1}}>
+            <div style={{height:'100%',borderRadius:1,background:'rgba(255,255,255,0.22)',
+              width:`${totalQs?((doneQs/totalQs)*100):0}%`,transition:'width .5s ease'}}/>
+          </div>
+          <span style={{fontSize:10,color:'rgba(255,255,255,0.15)',fontWeight:300,whiteSpace:'nowrap',fontFamily:"'Inter',sans-serif"}}>
+            {doneQs+1} / {totalQs}
+          </span>
+        </OBAppear>
+        <OBAppear delay={280} style={{marginBottom:34}}>
+          <p style={{fontSize:20,fontFamily:"'Lora',serif",fontWeight:400,color:'rgba(255,255,255,0.55)',lineHeight:1.72,margin:0}}>
+            {curQ.question(userName)}
+          </p>
+        </OBAppear>
+        <OBAppear delay={520}>
+          {curQ.type==='choice'?(
+            <div style={{display:'flex',flexDirection:'column',gap:7}}>
+              {curQ.choices.map(ch=>(
+                <button key={ch.id} onClick={()=>{setChoiceVal(ch.id);setTimeout(nextQ,350);}} style={OB_ghost(choiceVal===ch.id)}>
+                  {ch.label}
+                </button>
+              ))}
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',gap:14}}>
+              <input ref={areaInputRef} value={areaInput} onChange={e=>setAreaInput(e.target.value)}
+                onKeyDown={e=>e.key==='Enter'&&canNext&&nextQ()}
+                placeholder={curQ.placeholder} style={OB_input}/>
+              <p style={{fontSize:10,color:'rgba(255,255,255,0.18)',fontWeight:300,margin:0,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
+                {curQ.hint}
+              </p>
+              <div style={{display:'flex',gap:14,alignItems:'center',marginTop:4}}>
+                <button onClick={nextQ} style={OB_cta(canNext)}>
+                  {curQ.optional&&!areaInput.trim()?'Omitir':'Continuar'}
+                </button>
+                {!curQ.optional&&(
+                  <button onClick={nextQ} style={{background:'transparent',border:'none',
+                    color:'rgba(255,255,255,0.18)',fontSize:11,fontFamily:"'Inter',sans-serif",
+                    fontWeight:300,cursor:'pointer',letterSpacing:.5,padding:0,
+                    textDecoration:'underline',textDecorationColor:'rgba(255,255,255,0.1)'}}>
+                    omitir
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </OBAppear>
+      </>}
+
+      {/* ── DONE ── */}
+      {gStep==='done'&&<>
+        <OBAppear delay={150} style={{marginBottom:20}}>
+          <p style={{fontSize:10,color:'rgba(255,255,255,0.16)',fontWeight:300,letterSpacing:2.5,textTransform:'uppercase',margin:0,fontFamily:"'Inter',sans-serif"}}>Todo listo</p>
+        </OBAppear>
+        <OBAppear delay={350} style={{marginBottom:10}}>
+          <p style={{fontSize:24,fontFamily:"'Lora',serif",color:'rgba(255,255,255,0.7)',lineHeight:1.6,margin:0}}>
+            Bienvenido, <em>{userName}</em>.
+          </p>
+        </OBAppear>
+        <OBAppear delay={600} style={{marginBottom:36}}>
+          <p style={{fontSize:15,fontFamily:"'Lora',serif",color:'rgba(255,255,255,0.3)',lineHeight:1.8,margin:0,fontStyle:'italic'}}>
+            Tu segundo cerebro ya está tomando forma. Todo tiene su lugar aquí.
+          </p>
+        </OBAppear>
+        <OBAppear delay={850} style={{marginBottom:44}}>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:Object.entries(seedData).filter(([,v])=>v).length?16:0}}>
+            {selAreas.map(id=>{ const a=OB_AREAS.find(x=>x.id===id); return(
+              <span key={id} style={{fontSize:11,padding:'5px 13px',borderRadius:24,
+                border:'1px solid rgba(255,255,255,0.1)',color:'rgba(255,255,255,0.28)',
+                fontFamily:"'Inter',sans-serif",fontWeight:300,display:'flex',alignItems:'center',gap:6}}>
+                {a.emoji} {a.label}
+              </span>
+            );})}
+          </div>
+          {Object.entries(seedData).filter(([,v])=>v).length>0&&(
+            <div style={{borderTop:'1px solid rgba(255,255,255,0.07)',paddingTop:16,display:'flex',flexDirection:'column',gap:6}}>
+              <p style={{fontSize:10,color:'rgba(255,255,255,0.15)',fontWeight:300,letterSpacing:2,textTransform:'uppercase',margin:'0 0 8px',fontFamily:"'Inter',sans-serif"}}>
+                Pre-llenado en tu app
+              </p>
+              {Object.entries(seedData).filter(([,v])=>v).map(([key,val])=>{
+                const meta=OB_SEED_META[key]||{icon:'·',label:key};
+                const display=key==='sideproj_estado'
+                  ?(OB_AREA_QS.sideproj[1].choices.find(c=>c.id===val)?.label||val):val;
+                return(
+                  <div key={key} style={{display:'flex',alignItems:'flex-start',gap:10}}>
+                    <span style={{fontSize:11,minWidth:22}}>{meta.icon}</span>
+                    <span style={{fontSize:10,color:'rgba(255,255,255,0.18)',fontWeight:300,letterSpacing:.3,fontFamily:"'Inter',sans-serif"}}>
+                      <span style={{color:'rgba(255,255,255,0.28)',fontWeight:400}}>{meta.label}</span>
+                      {' — '}{display}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </OBAppear>
+        <OBAppear delay={1100}>
+          <button onClick={()=>onDone(seedData,userName,selAreas)}
+            style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.15)',
+              borderRadius:28,padding:'13px 34px',color:'rgba(255,255,255,0.5)',fontSize:11,
+              fontFamily:"'Inter',sans-serif",fontWeight:300,letterSpacing:2,textTransform:'uppercase',
+              cursor:'pointer',transition:'all .35s',display:'flex',alignItems:'center',gap:10}}
+            onMouseEnter={e=>{e.currentTarget.style.background='rgba(255,255,255,0.09)';e.currentTarget.style.color='rgba(255,255,255,0.78)';e.currentTarget.style.borderColor='rgba(255,255,255,0.25)';}}
+            onMouseLeave={e=>{e.currentTarget.style.background='rgba(255,255,255,0.05)';e.currentTarget.style.color='rgba(255,255,255,0.5)';e.currentTarget.style.borderColor='rgba(255,255,255,0.15)';}}>
+            Abrir Segundo Cerebro
+            <svg width={11} height={11} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </button>
+        </OBAppear>
+      </>}
+    </div>
+  );
+
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:9000,
+      background:'#111009',
+      display:'flex',alignItems:'center',justifyContent:'center',
+      padding:'32px 24px',overflow:'hidden'}}>
+
+      {/* Warm ambient */}
+      <div style={{position:'absolute',top:'-10%',left:'50%',transform:'translateX(-50%)',
+        width:600,height:400,borderRadius:'50%',pointerEvents:'none',
+        background:'radial-gradient(ellipse, rgba(100,80,50,0.12) 0%, transparent 65%)'}}/>
+
+      {/* Grain */}
+      <svg style={{position:'absolute',inset:0,width:'100%',height:'100%',opacity:.03,pointerEvents:'none'}}>
+        <filter id="obgrain">
+          <feTurbulence type="fractalNoise" baseFrequency=".65" numOctaves="3" stitchTiles="stitch"/>
+          <feColorMatrix type="saturate" values="0"/>
+        </filter>
+        <rect width="100%" height="100%" filter="url(#obgrain)"/>
+      </svg>
+
+      {content}
+
+      <style>{`
+        #obgrain ~ rect { display: block; }
+        em { color: rgba(255,255,255,0.62); font-style: italic; }
+        input[data-ob]::placeholder { color: rgba(255,255,255,0.14); }
+      `}</style>
     </div>
   );
 };
@@ -10198,7 +10612,7 @@ self.addEventListener('fetch',e=>{
   return (
     <div style={{display:'flex',flexDirection:isMobile?'column':'row',height:'100dvh',width:'100%',background:T.bg,fontFamily:"'DM Sans',system-ui,sans-serif",color:T.text,overflow:'hidden',position:'fixed',inset:0}}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@700&family=Lora:ital,wght@0,400;0,500;1,400;1,500&family=Inter:wght@300;400;500&display=swap');
         html,body,#root{margin:0;padding:0;width:100%;height:100%;background:#090e13;}
         *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
         *:focus-visible{outline:2px solid ${T.accent};outline-offset:2px;border-radius:4px;}
@@ -10329,7 +10743,91 @@ self.addEventListener('fetch',e=>{
         openFromNav={psickeOpen} onNavClose={()=>setPsickeOpen(false)}/>
 
       {/* ONBOARDING */}
-      {showOnboarding&&<Onboarding onDone={()=>{localStorage.setItem('sb_onboarding_done','1');setShowOnboarding(false);}}/>}
+      {showOnboarding&&<Onboarding onDone={(seedData,userName,chosenAreas)=>{
+        try{localStorage.setItem('sb_onboarding_done','1');}catch(e){}
+        if(userName) try{localStorage.setItem('sb_user_name',userName);}catch(e){}
+
+        // Apply seedData to pre-fill the app's data structures
+        if(data){
+          const todayStr=today();
+          const yr=new Date().getFullYear();
+          const areas=data.areas||[];
+          const findArea=(keyword)=>areas.find(a=>a.name.toLowerCase().includes(keyword.toLowerCase()));
+          const newData={...data};
+
+          // Helpers to push without mutating
+          const addProj=(p)=>{ newData.projects=[...(newData.projects||[]),p]; };
+          const addTask=(t)=>{ newData.tasks=[...(newData.tasks||[]),t]; };
+          const addHabit=(h)=>{ newData.habits=[...(newData.habits||[]),h]; };
+          const addObj=(o)=>{ newData.objectives=[...(newData.objectives||[]),o]; };
+          const addInbox=(i)=>{ newData.inbox=[i,...(newData.inbox||[])]; };
+          const addPerson=(p)=>{ newData.people=[...(newData.people||[]),p]; };
+          const addBook=(b)=>{ newData.books=[...(newData.books||[]),b]; };
+          const addSP=(s)=>{ newData.sideProjects=[...(newData.sideProjects||[]),s]; };
+          const addMaint=(m)=>{ newData.maintenances=[...(newData.maintenances||[]),m]; };
+
+          // trabajo
+          let newProjId=null;
+          if(seedData.trabajo_proyecto){
+            const area=findArea('trabajo');
+            newProjId=uid();
+            addProj({id:newProjId,title:seedData.trabajo_proyecto,areaId:area?.id||'',status:'active',createdAt:todayStr,description:'',emoji:'💼'});
+          }
+          if(seedData.trabajo_next){
+            addTask({id:uid(),title:seedData.trabajo_next,status:'todo',priority:'alta',projectId:newProjId||'',createdAt:todayStr,dueDate:todayStr,subtasks:[],notes:'',objectiveId:''});
+          }
+          // salud
+          if(seedData.salud_habit){
+            addHabit({id:uid(),name:seedData.salud_habit,frequency:'daily',completions:[],color:'',emoji:'💪'});
+          }
+          if(seedData.salud_objetivo){
+            const area=findArea('salud');
+            addObj({id:uid(),title:seedData.salud_objetivo,areaId:area?.id||'',deadline:`${yr}-12-31`,status:'active',milestones:[],notes:''});
+          }
+          // finanzas
+          if(seedData.finanzas_meta){
+            const area=findArea('finanzas');
+            addObj({id:uid(),title:seedData.finanzas_meta,areaId:area?.id||'',deadline:`${yr}-12-31`,status:'active',milestones:[],notes:''});
+          }
+          if(seedData.finanzas_pendiente){
+            addInbox({id:uid(),content:seedData.finanzas_pendiente,createdAt:todayStr,processed:false});
+          }
+          // hogar
+          if(seedData.hogar_pendiente){
+            addMaint({id:uid(),name:seedData.hogar_pendiente,category:'General',lastDone:null,nextDue:null,notes:'',recurrence:''});
+          }
+          // relaciones
+          if(seedData.relaciones_persona){
+            addPerson({id:uid(),name:seedData.relaciones_persona,relation:'',birthday:'',phone:'',email:'',emoji:'👤',notes:'',tags:[]});
+          }
+          // desarrollo
+          if(seedData.desarrollo_aprender){
+            const area=findArea('desarrollo');
+            addObj({id:uid(),title:`Aprender: ${seedData.desarrollo_aprender}`,areaId:area?.id||'',deadline:`${yr}-12-31`,status:'active',milestones:[],notes:''});
+          }
+          if(seedData.desarrollo_leer){
+            addBook({id:uid(),title:seedData.desarrollo_leer,author:'',status:'want',rating:0,createdAt:todayStr,notes:'',genre:'',pages:0});
+          }
+          // side projects
+          if(seedData.sideproj_nombre){
+            addSP({id:uid(),name:seedData.sideproj_nombre,description:'',stack:'',status:seedData.sideproj_estado||'idea',url:'',createdAt:todayStr,emoji:'🚀'});
+          }
+
+          // Persist everything
+          setData(newData);
+          save('projects',newData.projects);
+          save('tasks',newData.tasks);
+          save('habits',newData.habits);
+          save('objectives',newData.objectives);
+          save('inbox',newData.inbox);
+          save('maintenances',newData.maintenances);
+          save('people',newData.people);
+          save('books',newData.books);
+          save('sideProjects',newData.sideProjects);
+        }
+
+        setShowOnboarding(false);
+      }}/>}
 
       <ToastContainer/>
     </div>
